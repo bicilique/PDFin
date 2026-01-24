@@ -230,12 +230,6 @@ Found a bug? Please open an issue with:
 
 ---
 
-## 📝 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 🙏 Acknowledgments
 
 - [Apache PDFBox](https://pdfbox.apache.org/) - PDF manipulation library
@@ -246,8 +240,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📞 Contact
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/desktop-pdf-helper/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/desktop-pdf-helper/discussions)
+- **Issues**: [GitHub Issues](https://github.com/bicilique/PDFin/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/bicilique/PDFin)
 
 ---
 
