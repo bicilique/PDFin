@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.pdftoolkit.controllers.ProtectController"
+            fitToWidth="true" fitToHeight="true"
+            styleClass="content-scroll">
+
+<StackPane>
+
+    <VBox styleClass="tool-view" spacing="24">
+        <padding>
+            <Insets top="40" right="40" bottom="40" left="40"/>
+        </padding>
+
+        <!-- Header -->
+        <VBox spacing="8">
+            <Label text="%protect.title" styleClass="page-title"/>
+            <Label text="%protect.subtitle" styleClass="page-subtitle"/>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 1: Pilih Berkas -->
+        <VBox spacing="16">
+            <Label text="%protect.step1" styleClass="step-title"/>
+            
+            <VBox fx:id="dropZone" styleClass="drop-zone" alignment="CENTER" spacing="12" prefHeight="140">
+                <Label text="%protect.dropHint" styleClass="drop-hint"/>
+                <Label text="%protect.dropHintOr" styleClass="drop-hint-secondary"/>
+                <Button fx:id="addFilesButton" text="%protect.selectFiles" styleClass="secondary-button"/>
+            </VBox>
+
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <ListView fx:id="fileListView" HBox.hgrow="ALWAYS" prefHeight="120" styleClass="file-list"/>
+                <Button fx:id="clearButton" text="%protect.clear" styleClass="secondary-button"/>
+            </HBox>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 2: Set Password -->
+        <VBox spacing="16">
+            <Label text="%protect.step2" styleClass="step-title"/>
+            
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="%protect.password" minWidth="120" styleClass="field-label"/>
+                <PasswordField fx:id="passwordField" HBox.hgrow="ALWAYS" 
+                               promptText="%protect.passwordPlaceholder" styleClass="field-input"/>
+                <Label fx:id="strengthLabel" minWidth="100" styleClass="strength-label"/>
+            </HBox>
+
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="%protect.confirm" minWidth="120" styleClass="field-label"/>
+                <PasswordField fx:id="confirmPasswordField" HBox.hgrow="ALWAYS" 
+                               promptText="%protect.confirmPlaceholder" styleClass="field-input"/>
+            </HBox>
+
+            <CheckBox fx:id="showPasswordCheckbox" text="%protect.showPassword" styleClass="check-box"/>
+            
+            <Label text="%protect.passwordHint" 
+                   styleClass="hint-label" wrapText="true"/>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 3: Output -->
+        <VBox spacing="16">
+            <Label text="%protect.step3" styleClass="step-title"/>
+            
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="%protect.outputFolder" minWidth="120" styleClass="field-label"/>
+                <TextField fx:id="outputFolderField" HBox.hgrow="ALWAYS" editable="false" 
+                           promptText="%protect.chooseFolder" styleClass="field-input"/>
+                <Button fx:id="browseOutputButton" text="%protect.chooseFolder" styleClass="secondary-button"/>
+            </HBox>
+
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="%protect.fileName" minWidth="120" styleClass="field-label"/>
+                <TextField fx:id="outputFileNameField" HBox.hgrow="ALWAYS" 
+                           promptText="%protect.fileNamePlaceholder" styleClass="field-input"/>
+            </HBox>
+
+            <Label fx:id="validationLabel" styleClass="validation-error" visible="false" wrapText="true"/>
+        </VBox>
+
+        <!-- Footer Actions -->
+        <HBox spacing="12" alignment="CENTER" styleClass="footer-actions">
+            <Button fx:id="backButton" text="%protect.goBack" styleClass="secondary-button"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="processButton" text="%protect.protectNow" styleClass="primary-button" 
+                    defaultButton="true"/>
+        </HBox>
+    </VBox>
+
+    <!-- Progress Overlay -->
+    <StackPane fx:id="progressOverlay" styleClass="progress-overlay" visible="false" managed="false">
+        <VBox alignment="CENTER" spacing="32" styleClass="progress-card">
+            <VBox alignment="CENTER" spacing="16">
+                <Label text="%protect.processing" styleClass="progress-title"/>
+                <ProgressBar fx:id="progressBar" prefWidth="400" styleClass="progress-bar" progress="-1"/>
+                <Label fx:id="progressLabel" text="%progress.processing" styleClass="progress-message"/>
+            </VBox>
+            
+            <Button fx:id="cancelButton" text="%protect.cancel" styleClass="secondary-button"/>
+            
+            <VBox fx:id="completionPane" alignment="CENTER" spacing="20" visible="false" managed="false">
+                <Label text="✓" styleClass="success-icon"/>
+                <Label fx:id="completionMessage" text="%protect.success" 
+                       styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="400"/>
+                <HBox spacing="16" alignment="CENTER">
+                    <Button fx:id="openFolderButton" text="%protect.openFolder" styleClass="secondary-button"/>
+                    <Button fx:id="processAnotherButton" text="%protect.processAnother" styleClass="primary-button"/>
+                </HBox>
+            </VBox>
+        </VBox>
+    </StackPane>
+</StackPane>
+</ScrollPane>

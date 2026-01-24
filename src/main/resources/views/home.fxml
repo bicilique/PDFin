@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.pdftoolkit.controllers.HomeController"
+            fitToWidth="true"
+            styleClass="content-scroll">
+    
+<VBox styleClass="home-view" spacing="16">
+    
+    <padding>
+        <Insets top="24" right="32" bottom="24" left="32"/>
+    </padding>
+
+    <!-- Welcome Section - Compact -->
+    <VBox spacing="4" alignment="CENTER">
+        <Label fx:id="welcomeLabel" text="%home.welcome" styleClass="page-title"/>
+        <Label fx:id="subtitleLabel" text="%home.subtitle" styleClass="page-subtitle"/>
+    </VBox>
+
+    <!-- Tool Tiles Grid -->
+    <GridPane hgap="20" vgap="20" VBox.vgrow="ALWAYS">
+        <columnConstraints>
+            <ColumnConstraints percentWidth="50" hgrow="ALWAYS"/>
+            <ColumnConstraints percentWidth="50" hgrow="ALWAYS"/>
+        </columnConstraints>
+        <rowConstraints>
+            <RowConstraints minHeight="180" vgrow="SOMETIMES"/>
+            <RowConstraints minHeight="180" vgrow="SOMETIMES"/>
+        </rowConstraints>
+
+        <!-- Gabung PDF Tile -->
+        <VBox fx:id="mergeTile" styleClass="tool-tile" alignment="CENTER" spacing="12" 
+              GridPane.columnIndex="0" GridPane.rowIndex="0">
+            <ImageView fx:id="mergeImage" fitWidth="80" fitHeight="80" preserveRatio="true" styleClass="tool-image">
+                <image>
+                    <Image url="@../images/features/merge.png"/>
+                </image>
+            </ImageView>
+            <Label fx:id="mergeTitleLabel" text="%home.merge.title" styleClass="tool-title"/>
+            <Label fx:id="mergeDescLabel" text="%home.merge.description" 
+                   styleClass="tool-description" wrapText="true" textAlignment="CENTER" maxWidth="260"/>
+        </VBox>
+
+        <!-- Pisah PDF Tile -->
+        <VBox fx:id="splitTile" styleClass="tool-tile" alignment="CENTER" spacing="12"
+              GridPane.columnIndex="1" GridPane.rowIndex="0">
+            <ImageView fx:id="splitImage" fitWidth="80" fitHeight="80" preserveRatio="true" styleClass="tool-image">
+                <image>
+                    <Image url="@../images/features/split.png"/>
+                </image>
+            </ImageView>
+            <Label fx:id="splitTitleLabel" text="%home.split.title" styleClass="tool-title"/>
+            <Label fx:id="splitDescLabel" text="%home.split.description" 
+                   styleClass="tool-description" wrapText="true" textAlignment="CENTER" maxWidth="260"/>
+        </VBox>
+
+        <!-- Kompres PDF Tile -->
+        <VBox fx:id="compressTile" styleClass="tool-tile" alignment="CENTER" spacing="12"
+              GridPane.columnIndex="0" GridPane.rowIndex="1">
+            <ImageView fx:id="compressImage" fitWidth="80" fitHeight="80" preserveRatio="true" styleClass="tool-image">
+                <image>
+                    <Image url="@../images/features/compress.png"/>
+                </image>
+            </ImageView>
+            <Label fx:id="compressTitleLabel" text="%home.compress.title" styleClass="tool-title"/>
+            <Label fx:id="compressDescLabel" text="%home.compress.description" 
+                   styleClass="tool-description" wrapText="true" textAlignment="CENTER" maxWidth="260"/>
+        </VBox>
+
+        <!-- Kunci PDF Tile -->
+        <VBox fx:id="protectTile" styleClass="tool-tile" alignment="CENTER" spacing="12"
+              GridPane.columnIndex="1" GridPane.rowIndex="1">
+            <ImageView fx:id="protectImage" fitWidth="80" fitHeight="80" preserveRatio="true" styleClass="tool-image">
+                <image>
+                    <Image url="@../images/features/protect.png"/>
+                </image>
+            </ImageView>
+            <Label fx:id="protectTitleLabel" text="%home.protect.title" styleClass="tool-title"/>
+            <Label fx:id="protectDescLabel" text="%home.protect.description" 
+                   styleClass="tool-description" wrapText="true" textAlignment="CENTER" maxWidth="260"/>
+        </VBox>
+    </GridPane>
+
+    <!-- Recent Files Section -->
+    <VBox spacing="12" styleClass="recent-section">
+        <VBox.margin>
+            <Insets top="8"/>
+        </VBox.margin>
+        <Label fx:id="recentTitleLabel" text="%home.recent.title" styleClass="section-title"/>
+        <Label fx:id="noRecentLabel" text="%home.recent.empty" styleClass="empty-state" visible="true"/>
+        <ListView fx:id="recentFilesList" styleClass="recent-list" visible="false" maxHeight="120"/>
+    </VBox>
+
+</VBox>
+</ScrollPane>

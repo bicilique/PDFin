@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.pdftoolkit.controllers.CompressController"
+            fitToWidth="true" fitToHeight="true"
+            styleClass="content-scroll">
+
+<StackPane>
+
+    <VBox styleClass="tool-view" spacing="24">
+        <padding>
+            <Insets top="40" right="40" bottom="40" left="40"/>
+        </padding>
+
+        <!-- Header -->
+        <VBox spacing="8">
+            <Label text="%compress.title" styleClass="page-title"/>
+            <Label text="%compress.subtitle" styleClass="page-subtitle"/>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 1: Pilih Berkas -->
+        <VBox spacing="16">
+            <Label text="%compress.step1" styleClass="step-title"/>
+            
+            <VBox fx:id="dropZone" styleClass="drop-zone" alignment="CENTER" spacing="12" prefHeight="140">
+                <Label text="%compress.dropHint" styleClass="drop-hint"/>
+                <Label text="%compress.dropHintOr" styleClass="drop-hint-secondary"/>
+                <Button fx:id="addFilesButton" text="%compress.selectFiles" styleClass="secondary-button"/>
+            </VBox>
+
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <ListView fx:id="fileListView" HBox.hgrow="ALWAYS" prefHeight="120" styleClass="file-list"/>
+                <Button fx:id="clearButton" text="%compress.clear" styleClass="secondary-button"/>
+            </HBox>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 2: Opsi Kompresi -->
+        <VBox spacing="16">
+            <Label text="%compress.step2" styleClass="step-title"/>
+            
+            <VBox spacing="12">
+                <HBox spacing="16" alignment="CENTER_LEFT">
+                    <Label text="%compress.levelLabel" minWidth="80" styleClass="field-label"/>
+                    <Slider fx:id="compressionSlider" HBox.hgrow="ALWAYS" min="1" max="3" value="2" 
+                            showTickLabels="false" showTickMarks="true" majorTickUnit="1" 
+                            minorTickCount="0" snapToTicks="true"/>
+                    <Label fx:id="compressionLevelLabel" text="%compress.levelRecommended" minWidth="120" styleClass="level-label"/>
+                </HBox>
+                
+                <HBox spacing="12">
+                    <Label text="%compress.levelLow" styleClass="slider-label" HBox.hgrow="ALWAYS"/>
+                    <Label text="%compress.levelRecommended" styleClass="slider-label" HBox.hgrow="ALWAYS"/>
+                    <Label text="%compress.levelMaximum" styleClass="slider-label" HBox.hgrow="ALWAYS"/>
+                </HBox>
+            </VBox>
+
+            <CheckBox fx:id="keepBestQualityCheckbox" text="%compress.keepQuality" styleClass="check-box"/>
+            
+            <Label text="%compress.hint" 
+                   styleClass="hint-label" wrapText="true"/>
+        </VBox>
+
+        <Separator/>
+
+        <!-- Step 3: Output -->
+        <VBox spacing="16">
+            <Label text="%compress.step3" styleClass="step-title"/>
+            
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="%compress.outputFolder" minWidth="120" styleClass="field-label"/>
+                <TextField fx:id="outputFolderField" HBox.hgrow="ALWAYS" editable="false" 
+                           promptText="%compress.chooseFolder" styleClass="field-input"/>
+                <Button fx:id="browseOutputButton" text="%compress.chooseFolder" styleClass="secondary-button"/>
+            </HBox>
+
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="%compress.fileName" minWidth="120" styleClass="field-label"/>
+                <TextField fx:id="outputFileNameField" HBox.hgrow="ALWAYS" 
+                           promptText="%compress.fileNamePlaceholder" styleClass="field-input"/>
+            </HBox>
+
+            <Label fx:id="validationLabel" styleClass="validation-error" visible="false" wrapText="true"/>
+        </VBox>
+
+        <!-- Footer Actions -->
+        <HBox spacing="12" alignment="CENTER" styleClass="footer-actions">
+            <Button fx:id="backButton" text="%compress.goBack" styleClass="secondary-button"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="processButton" text="%compress.compressNow" styleClass="primary-button" 
+                    defaultButton="true"/>
+        </HBox>
+    </VBox>
+
+    <!-- Progress Overlay -->
+    <StackPane fx:id="progressOverlay" styleClass="progress-overlay" visible="false" managed="false">
+        <VBox alignment="CENTER" spacing="32" styleClass="progress-card">
+            <VBox alignment="CENTER" spacing="16">
+                <Label text="%compress.processing" styleClass="progress-title"/>
+                <ProgressBar fx:id="progressBar" prefWidth="400" styleClass="progress-bar" progress="-1"/>
+                <Label fx:id="progressLabel" text="%progress.processing" styleClass="progress-message"/>
+            </VBox>
+            
+            <Button fx:id="cancelButton" text="%compress.cancel" styleClass="secondary-button"/>
+            
+            <VBox fx:id="completionPane" alignment="CENTER" spacing="20" visible="false" managed="false">
+                <Label text="✓" styleClass="success-icon"/>
+                <Label fx:id="completionMessage" text="%compress.success" 
+                       styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="400"/>
+                <HBox spacing="16" alignment="CENTER">
+                    <Button fx:id="openFolderButton" text="%compress.openFolder" styleClass="secondary-button"/>
+                    <Button fx:id="processAnotherButton" text="%compress.processAnother" styleClass="primary-button"/>
+                </HBox>
+            </VBox>
+        </VBox>
+    </StackPane>
+</StackPane>
+</ScrollPane>
