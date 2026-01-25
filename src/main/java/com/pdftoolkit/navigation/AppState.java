@@ -11,15 +11,22 @@ import java.util.List;
 /**
  * Lightweight application state holder.
  * Maintains recent files and shared data across views.
+ * Extended to support tool-specific state persistence across navigation and language/theme changes.
  */
 public class AppState {
 
     private static AppState instance;
 
     private final ObservableList<RecentFile> recentFiles;
+    
+    // Tool-specific state holders
+    private SplitToolState splitToolState;
+    private MergeToolState mergeToolState;
 
     private AppState() {
         recentFiles = FXCollections.observableArrayList();
+        splitToolState = new SplitToolState();
+        mergeToolState = new MergeToolState();
     }
 
     public static AppState getInstance() {
@@ -27,6 +34,20 @@ public class AppState {
             instance = new AppState();
         }
         return instance;
+    }
+    
+    /**
+     * Get the split tool state holder.
+     */
+    public SplitToolState getSplitToolState() {
+        return splitToolState;
+    }
+    
+    /**
+     * Get the merge tool state holder.
+     */
+    public MergeToolState getMergeToolState() {
+        return mergeToolState;
     }
 
     /**
@@ -79,6 +100,92 @@ public class AppState {
 
         public LocalDateTime getTimestamp() {
             return timestamp;
+        }
+    }
+    
+    /**
+     * Split tool state - persists across navigation and language/theme changes.
+     */
+    public static class SplitToolState {
+        private File selectedFile;
+        private int totalPages;
+        private double zoomLevel = 1.0;
+        private String outputFolder;
+        
+        public File getSelectedFile() {
+            return selectedFile;
+        }
+        
+        public void setSelectedFile(File file) {
+            this.selectedFile = file;
+        }
+        
+        public int getTotalPages() {
+            return totalPages;
+        }
+        
+        public void setTotalPages(int pages) {
+            this.totalPages = pages;
+        }
+        
+        public double getZoomLevel() {
+            return zoomLevel;
+        }
+        
+        public void setZoomLevel(double zoom) {
+            this.zoomLevel = zoom;
+        }
+        
+        public String getOutputFolder() {
+            return outputFolder;
+        }
+        
+        public void setOutputFolder(String folder) {
+            this.outputFolder = folder;
+        }
+        
+        public void clear() {
+            selectedFile = null;
+            totalPages = 0;
+            zoomLevel = 1.0;
+            outputFolder = null;
+        }
+    }
+    
+    /**
+     * Merge tool state - persists across navigation and language/theme changes.
+     */
+    public static class MergeToolState {
+        private final List<File> selectedFiles = new ArrayList<>();
+        private String outputFolder;
+        
+        public List<File> getSelectedFiles() {
+            return selectedFiles;
+        }
+        
+        public void addFile(File file) {
+            selectedFiles.add(file);
+        }
+        
+        public void removeFile(File file) {
+            selectedFiles.remove(file);
+        }
+        
+        public void clearFiles() {
+            selectedFiles.clear();
+        }
+        
+        public String getOutputFolder() {
+            return outputFolder;
+        }
+        
+        public void setOutputFolder(String folder) {
+            this.outputFolder = folder;
+        }
+        
+        public void clear() {
+            selectedFiles.clear();
+            outputFolder = null;
         }
     }
 }

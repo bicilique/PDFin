@@ -1,6 +1,7 @@
 package com.pdftoolkit.controllers;
 
 import com.pdftoolkit.navigation.AppNavigator;
+import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfSplitService;
 import com.pdftoolkit.services.PdfThumbnailService;
 import com.pdftoolkit.ui.PageThumbnailCard;
@@ -8,6 +9,12 @@ import com.pdftoolkit.ui.RangeCard;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -19,6 +26,7 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -38,12 +46,28 @@ import java.util.stream.Collectors;
 public class SplitControllerRedesigned {
 
     // LEFT PANEL: Page preview elements
-    @FXML private FlowPane pageGridContainer;
+    @FXML private TilePane pageGridContainer;
     @FXML private StackPane pageEmptyStatePane;
     @FXML private Label selectedFileInfoLabel;
+    @FXML private Button removePdfButton; // NEW: Remove PDF button
+    @FXML private Button deselectAllButton;
+    
+    // Zoom control elements
+    @FXML private javafx.scene.layout.HBox zoomControlsBox;
+    @FXML private Button zoomOutButton;
+    @FXML private Slider zoomSlider;
+    @FXML private Button zoomInButton;
+    @FXML private Label zoomPercentLabel;
+    
+    // Progressive loading control elements
+    @FXML private javafx.scene.layout.HBox loadControlsBox;
+    @FXML private Label pageLoadStatusLabel;
+    @FXML private Button loadMoreButton;
+    @FXML private Button loadAllButton;
+    @FXML private ProgressIndicator loadingProgressIndicator;
     
     // RIGHT PANEL: Configuration elements
-    @FXML private VBox fileDropZone;
+    // NOTE: fileDropZone removed - no longer using right-side drag zone
     @FXML private Button selectFileButton;
     
     @FXML private VBox modeSection;
@@ -99,13 +123,53 @@ public class SplitControllerRedesigned {
     private final PdfSplitService splitService = new PdfSplitService();
     private final PdfThumbnailService thumbnailService = new PdfThumbnailService();
     private Task<File> currentTask;
+    
+    // Progressive loading state
+    private int loadedPageCount = 0;
+    private int totalPageCount = 0;
+    private static final int INITIAL_BATCH_SIZE = 30;
+    private static final int LOAD_MORE_BATCH_SIZE = 20;
+    private Task<Void> currentLoadTask;
     private File lastOutputFolder;
     private ToggleGroup modeToggleGroup;
+    
+    // Properties for empty-state binding
+    private final BooleanProperty noContentProperty = new SimpleBooleanProperty(true);
+    private final IntegerProperty loadedThumbnailsCountProperty = new SimpleIntegerProperty(0);
+    private final BooleanProperty isLoadingProperty = new SimpleBooleanProperty(false);
+    
+    // State persistence
+    private final AppState.SplitToolState toolState = AppState.getInstance().getSplitToolState();
+    
+    // CTA binding - will be initialized in initialize()
+    private BooleanBinding canSplitBinding;
 
     @FXML
     private void initialize() {
-        // Set default output folder using AppPaths
-        outputFolderField.setText(AppPaths.getDefaultOutputPath());
+        // Restore state from AppState if available
+        restoreToolState();
+        
+        // Set default output folder if not restored
+        if (outputFolderField.getText() == null || outputFolderField.getText().isEmpty()) {
+            outputFolderField.setText(AppPaths.getDefaultOutputPath());
+        }
+        
+        // Bind empty-state visibility to noContent property
+        // We manually update noContentProperty when state changes
+        pageEmptyStatePane.visibleProperty().bind(noContentProperty);
+        pageEmptyStatePane.managedProperty().bind(noContentProperty);
+        pageEmptyStatePane.mouseTransparentProperty().bind(noContentProperty.not());
+        
+        // Bind page grid visibility to inverse of empty state
+        pageGridContainer.visibleProperty().bind(noContentProperty.not());
+        pageGridContainer.managedProperty().bind(noContentProperty.not());
+        
+        // Initialize empty state to true
+        updateEmptyState();
+        
+        // Setup drag & drop on the left empty-state panel
+        setupDragAndDrop();
+        setupLeftPanelDragDrop();
         
         // Setup mode toggle group
         modeToggleGroup = new ToggleGroup();
@@ -183,10 +247,135 @@ public class SplitControllerRedesigned {
         // Setup drag & drop
         setupDragAndDrop();
         
-        // Setup locale change listener
-        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> updateUI());
+        // Setup zoom slider listener
+        if (zoomSlider != null) {
+            zoomSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+                updateZoomPercentLabel(newVal.doubleValue());
+                // Save zoom level to state (TASK A)
+                toolState.setZoomLevel(newVal.doubleValue());
+                // Re-render thumbnails with new zoom level
+                if (selectedFile != null && !pageThumbnails.isEmpty()) {
+                    reRenderLoadedThumbnails(newVal.doubleValue());
+                }
+            });
+            // Initialize zoom percent label
+            updateZoomPercentLabel(1.0);
+        }
+        
+        // Setup output folder listener to save state
+        outputFolderField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.isEmpty()) {
+                toolState.setOutputFolder(newVal);
+            }
+        });
+        
+        // Setup locale change listener - IMPORTANT: only update labels, NOT state
+        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> refreshLabels());
+        
+        // Setup canSplit binding (TASK C)
+        setupCanSplitBinding();
         
         // Initial UI update
+        updateUI();
+    }
+    
+    /**
+     * Restore tool state from AppState if a PDF was previously loaded.
+     * This enables state persistence across navigation and language/theme changes.
+     */
+    private void restoreToolState() {
+        File savedFile = toolState.getSelectedFile();
+        if (savedFile != null && savedFile.exists()) {
+            // Restore the file without clearing state
+            setSelectedFile(savedFile);
+        }
+        
+        // Restore zoom level
+        if (zoomSlider != null && toolState.getZoomLevel() > 0) {
+            zoomSlider.setValue(toolState.getZoomLevel());
+        }
+        
+        // Restore output folder
+        String savedOutput = toolState.getOutputFolder();
+        if (savedOutput != null && !savedOutput.isEmpty()) {
+            outputFolderField.setText(savedOutput);
+        }
+    }
+    
+    /**
+     * Setup the canSplit binding that determines when the Split button is enabled.
+     * This binding observes all relevant state and re-evaluates automatically.
+     */
+    private void setupCanSplitBinding() {
+        // Create boolean binding that checks all conditions
+        canSplitBinding = Bindings.createBooleanBinding(() -> {
+            // Must have a selected file
+            if (selectedFile == null || totalPages == 0) {
+                return false;
+            }
+            
+            // Must have valid output folder
+            String outputPath = outputFolderField.getText();
+            if (outputPath == null || outputPath.isEmpty()) {
+                return false;
+            }
+            File outputDir = new File(outputPath);
+            if (!outputDir.exists() || !outputDir.isDirectory()) {
+                return false;
+            }
+            
+            // Mode-specific validation
+            if (extractPagesToggle.isSelected()) {
+                // Extract mode: must have page selection or valid page spec
+                String pageSpec = extractPagesField.getText();
+                if (pageSpec != null && !pageSpec.trim().isEmpty()) {
+                    try {
+                        com.pdftoolkit.utils.PageRangeParser.parse(pageSpec.trim(), totalPages);
+                        return true;
+                    } catch (IllegalArgumentException e) {
+                        return false;
+                    }
+                }
+                // Or check if any pages are selected
+                return pageThumbnails.stream().anyMatch(PageThumbnailCard::isSelected);
+            } else {
+                // Range mode: must have valid range
+                int from = fromPageSpinner.getValue() != null ? fromPageSpinner.getValue() : 0;
+                int to = toPageSpinner.getValue() != null ? toPageSpinner.getValue() : 0;
+                return from > 0 && to > 0 && from <= to && to <= totalPages;
+            }
+        },
+        // Observable dependencies
+        outputFolderField.textProperty(),
+        extractPagesField.textProperty(),
+        fromPageSpinner.valueProperty(),
+        toPageSpinner.valueProperty(),
+        modeToggleGroup.selectedToggleProperty()
+        );
+        
+        // Bind the split button's disable property (disable when canSplit is false)
+        splitButton.disableProperty().bind(canSplitBinding.not());
+    }
+    
+    /**
+     * Refresh UI labels without clearing state (for locale/theme changes).
+     */
+    private void refreshLabels() {
+        // Update file info label if file is loaded
+        if (selectedFile != null) {
+            String fileInfo = String.format(LocaleManager.getString("split.fileInfo"), 
+                                           selectedFile.getName(), totalPages);
+            selectedFileInfoLabel.setText(fileInfo);
+        } else {
+            selectedFileInfoLabel.setText(LocaleManager.getString("split.noFileSelected"));
+        }
+        
+        // Update load status if applicable
+        if (loadedPageCount > 0) {
+            updateLoadStatus();
+        }
+        
+        // Refresh other dynamic labels as needed
         updateUI();
     }
     
@@ -210,46 +399,70 @@ public class SplitControllerRedesigned {
     }
     
     private void setupDragAndDrop() {
-        fileDropZone.setOnDragOver(this::handleDragOver);
-        fileDropZone.setOnDragDropped(this::handleDragDropped);
+        // Right panel drag-drop removed (TASK F)
+        // Only left panel drop zone is active
     }
     
-    @FXML
-    private void handleDragOver(DragEvent event) {
+    /**
+     * Update the noContent property based on current state.
+     * Call this whenever selectedFile, totalPages, or loading state changes.
+     */
+    private void updateEmptyState() {
+        boolean noContent = selectedFile == null || totalPages == 0 || 
+                           (isLoadingProperty.get() && loadedThumbnailsCountProperty.get() == 0) || 
+                           (!isLoadingProperty.get() && pageThumbnails.isEmpty());
+        noContentProperty.set(noContent);
+    }
+    
+    /**
+     * Setup drag-and-drop for the left panel empty-state.
+     * This makes the entire empty-state area the primary drop target.
+     */
+    private void setupLeftPanelDragDrop() {
+        pageEmptyStatePane.setOnDragOver(this::handleLeftPanelDragOver);
+        pageEmptyStatePane.setOnDragDropped(this::handleLeftPanelDragDropped);
+        pageEmptyStatePane.setOnDragExited(event -> {
+            pageEmptyStatePane.getStyleClass().remove("drag-over");
+            event.consume();
+        });
+    }
+    
+    private void handleLeftPanelDragOver(DragEvent event) {
         Dragboard db = event.getDragboard();
-        if (db.hasFiles()) {
-            List<File> pdfFiles = db.getFiles().stream()
-                .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
-                .limit(1) // Only accept one file for split
-                .collect(Collectors.toList());
-            if (!pdfFiles.isEmpty()) {
+        if (db.hasFiles() && selectedFile == null) {
+            // Check if it's a PDF file
+            File file = db.getFiles().get(0);
+            if (file.getName().toLowerCase().endsWith(".pdf")) {
                 event.acceptTransferModes(TransferMode.COPY);
-                fileDropZone.getStyleClass().add("drag-over");
+                if (!pageEmptyStatePane.getStyleClass().contains("drag-over")) {
+                    pageEmptyStatePane.getStyleClass().add("drag-over");
+                }
             }
         }
         event.consume();
     }
     
-    @FXML
-    private void handleDragDropped(DragEvent event) {
+    private void handleLeftPanelDragDropped(DragEvent event) {
         Dragboard db = event.getDragboard();
         boolean success = false;
         
         if (db.hasFiles()) {
-            Optional<File> pdfFile = db.getFiles().stream()
-                .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
-                .findFirst();
-            
-            if (pdfFile.isPresent()) {
-                setSelectedFile(pdfFile.get());
+            File file = db.getFiles().get(0);
+            if (file.getName().toLowerCase().endsWith(".pdf")) {
+                setSelectedFile(file);
                 success = true;
+            } else {
+                // Show gentle feedback for invalid drops
+                showAlert(LocaleManager.getString("split.dropInvalidFile"), Alert.AlertType.WARNING);
             }
         }
         
         event.setDropCompleted(success);
-        fileDropZone.getStyleClass().remove("drag-over");
+        pageEmptyStatePane.getStyleClass().remove("drag-over");
         event.consume();
     }
+    
+    // Right panel drag-drop handlers removed (TASK F - only left panel accepts drops)
     
     @FXML
     private void handleSelectFile() {
@@ -259,7 +472,7 @@ public class SplitControllerRedesigned {
             new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
         );
         
-        File file = fileChooser.showOpenDialog(fileDropZone.getScene().getWindow());
+        File file = fileChooser.showOpenDialog(selectFileButton.getScene().getWindow());
         if (file != null) {
             setSelectedFile(file);
         }
@@ -268,9 +481,14 @@ public class SplitControllerRedesigned {
     private void setSelectedFile(File file) {
         selectedFile = file;
         
+        // Save to AppState for persistence across navigation (TASK A, B)
+        toolState.setSelectedFile(file);
+        
         // Clear existing thumbnails
         pageThumbnails.clear();
         pageGridContainer.getChildren().clear();
+        loadedThumbnailsCountProperty.set(0);
+        isLoadingProperty.set(true);
         
         // Load actual page count using thumbnail service
         Task<Integer> loadPageCountTask = new Task<>() {
@@ -282,15 +500,32 @@ public class SplitControllerRedesigned {
         
         loadPageCountTask.setOnSucceeded(e -> {
             totalPages = loadPageCountTask.getValue();
+            totalPageCount = totalPages; // Set progressive loading total
+            loadedPageCount = 0; // Reset loaded count
+            
+            // Save total pages to state
+            toolState.setTotalPages(totalPages);
             
             // Update UI
             String fileInfo = String.format(LocaleManager.getString("split.fileInfo"), 
                                            file.getName(), totalPages);
             selectedFileInfoLabel.setText(fileInfo);
             
-            // Hide empty state
-            pageEmptyStatePane.setVisible(false);
-            pageEmptyStatePane.setManaged(false);
+            // Show removePdfButton
+            if (removePdfButton != null) {
+                removePdfButton.setVisible(true);
+                removePdfButton.setManaged(true);
+            }
+            
+            // Show page grid container and zoom controls
+            if (zoomControlsBox != null) {
+                zoomControlsBox.setVisible(true);
+                zoomControlsBox.setManaged(true);
+            }
+            if (loadControlsBox != null && totalPageCount > INITIAL_BATCH_SIZE) {
+                loadControlsBox.setVisible(true);
+                loadControlsBox.setManaged(true);
+            }
             
             // Configure spinners with actual page range
             fromPageSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, totalPages, 1));
@@ -302,14 +537,20 @@ public class SplitControllerRedesigned {
             outputSection.setDisable(false);
             extractPagesSection.setDisable(false);
             
-            // Load all page thumbnails
-            loadAllPageThumbnails();
+            // Start progressive loading with initial batch
+            int initialBatch = calculateInitialBatchSize();
+            loadPageBatch(1, Math.min(initialBatch, totalPageCount));
+            
+            // Update empty state now that we have content
+            updateEmptyState();
             
             updateUI();
         });
         
         loadPageCountTask.setOnFailed(e -> {
             showAlert("Failed to read PDF: " + file.getName(), Alert.AlertType.ERROR);
+            isLoadingProperty.set(false);
+            updateEmptyState();
         });
         
         Thread thread = new Thread(loadPageCountTask);
@@ -324,7 +565,7 @@ public class SplitControllerRedesigned {
         // Create thumbnail cards for all pages
         for (int pageNum = 1; pageNum <= totalPages; pageNum++) {
             PageThumbnailCard card = new PageThumbnailCard(pageNum);
-            card.setLoading(); // Show loading state initially
+            card.setLoading(true); // Show loading state initially
             pageThumbnails.add(card);
             pageGridContainer.getChildren().add(card);
         }
@@ -473,17 +714,11 @@ public class SplitControllerRedesigned {
             }
         }
         
-        // Show/hide empty state for page grid
-        boolean hasPages = !pageThumbnails.isEmpty();
-        pageEmptyStatePane.setVisible(!hasPages);
-        pageEmptyStatePane.setManaged(!hasPages);
+        // Note: Empty state visibility is now managed by property bindings
+        // pageEmptyStatePane visibility is bound to noContentProperty in initialize()
         
-        // Enable/disable split button based on mode and selection
-        boolean canSplit = hasFile && (
-            (isExtractMode && hasValidExtractSpec) || 
-            (!isExtractMode && hasSelectedPages)
-        );
-        splitButton.setDisable(!canSplit);
+        // Note: Split button disable state is now managed by canSplitBinding in setupCanSplitBinding()
+        // The binding automatically observes all relevant properties and updates the button state
     }
     
     private boolean isValid() {
@@ -731,15 +966,20 @@ public class SplitControllerRedesigned {
         hideProgressOverlay();
         selectedFile = null;
         totalPages = 0;
+        totalPageCount = 0;
+        loadedPageCount = 0;
         rangeCards.clear();
         selectedRangeCard = null;
         selectedFileInfoLabel.setText(LocaleManager.getString("split.noFileSelected"));
         
-        // Clear page thumbnails
+        // Clear page thumbnails and reset properties
         pageThumbnails.clear();
         pageGridContainer.getChildren().clear();
-        pageEmptyStatePane.setVisible(true);
-        pageEmptyStatePane.setManaged(true);
+        loadedThumbnailsCountProperty.set(0);
+        isLoadingProperty.set(false);
+        
+        // Update empty state
+        updateEmptyState();
         
         modeSection.setDisable(true);
         rangeEditorSection.setDisable(true);
@@ -810,6 +1050,72 @@ public class SplitControllerRedesigned {
         deleteConfirmOverlay.setManaged(true);
     }
     
+    /**
+     * Handle Remove PDF action (TASK E).
+     * Safely clears the loaded PDF and resets UI to empty state.
+     */
+    @FXML
+    private void handleRemovePdf() {
+        // Cancel any ongoing thumbnail rendering tasks
+        if (currentLoadTask != null && currentLoadTask.isRunning()) {
+            currentLoadTask.cancel();
+        }
+        
+        // Clear thumbnail cache (if using caching)
+        thumbnailService.clearCache();
+        
+        // Clear state
+        selectedFile = null;
+        totalPages = 0;
+        totalPageCount = 0;
+        loadedPageCount = 0;
+        
+        // Clear collections
+        pageThumbnails.clear();
+        pageGridContainer.getChildren().clear();
+        rangeCards.clear();
+        selectedRangeCard = null;
+        
+        // Reset properties
+        loadedThumbnailsCountProperty.set(0);
+        isLoadingProperty.set(false);
+        
+        // Reset zoom to default
+        if (zoomSlider != null) {
+            zoomSlider.setValue(1.0);
+        }
+        
+        // Clear AppState (TASK A, B - only cleared on explicit user action)
+        toolState.clear();
+        
+        // Hide controls
+        if (removePdfButton != null) {
+            removePdfButton.setVisible(false);
+            removePdfButton.setManaged(false);
+        }
+        if (zoomControlsBox != null) {
+            zoomControlsBox.setVisible(false);
+            zoomControlsBox.setManaged(false);
+        }
+        if (loadControlsBox != null) {
+            loadControlsBox.setVisible(false);
+            loadControlsBox.setManaged(false);
+        }
+        
+        // Disable configuration sections
+        modeSection.setDisable(true);
+        rangeEditorSection.setDisable(true);
+        outputSection.setDisable(true);
+        extractPagesSection.setDisable(true);
+        
+        // Update file info label
+        selectedFileInfoLabel.setText(LocaleManager.getString("split.noFileSelected"));
+        
+        // Update empty state
+        updateEmptyState();
+        updateUI();
+    }
+    
     @FXML
     private void handleCancelDelete() {
         hideDeleteConfirmation();
@@ -824,5 +1130,247 @@ public class SplitControllerRedesigned {
         deleteConfirmOverlay.setVisible(false);
         deleteConfirmOverlay.setManaged(false);
         pageToDelete = null;
+    }
+    
+    // ==========================================
+    // Zoom Control Handlers
+    // ==========================================
+    
+    @FXML
+    private void handleZoomIn() {
+        if (zoomSlider != null) {
+            double current = zoomSlider.getValue();
+            double newZoom = Math.min(current + 0.5, 2.0); // Step by 0.5 for column changes
+            zoomSlider.setValue(newZoom);
+        }
+    }
+    
+    @FXML
+    private void handleZoomOut() {
+        if (zoomSlider != null) {
+            double current = zoomSlider.getValue();
+            double newZoom = Math.max(current - 0.5, 1.0); // Step by 0.5 for column changes
+            zoomSlider.setValue(newZoom);
+        }
+    }
+    
+    private void updateZoomPercentLabel(double zoom) {
+        if (zoomPercentLabel != null) {
+            // Convert zoom level to column count display
+            int columns = getColumnsForZoom(zoom);
+            ResourceBundle messages = LocaleManager.getBundle();
+            zoomPercentLabel.setText(columns + " cols");
+        }
+    }
+    
+    private int getColumnsForZoom(double zoom) {
+        // 1.0 = 3 columns, 1.5 = 2 columns, 2.0 = 1 column
+        if (zoom >= 2.0) return 1;
+        if (zoom >= 1.5) return 2;
+        return 3;
+    }
+    
+    private void reRenderLoadedThumbnails(double newZoom) {
+        if (selectedFile == null || pageGridContainer == null) {
+            return;
+        }
+        
+        // Adjust columns based on zoom level - NO RE-RENDERING
+        int columns = getColumnsForZoom(newZoom);
+        pageGridContainer.setPrefColumns(columns);
+        
+        // Adjust tile sizes for better fit
+        double tileWidth = 150 * (3.0 / columns); // Scale width inversely to columns
+        double tileHeight = 200 * (3.0 / columns);
+        pageGridContainer.setPrefTileWidth(tileWidth);
+        pageGridContainer.setPrefTileHeight(tileHeight);
+        
+        // Update card zoom property for visual scaling (CSS only)
+        for (PageThumbnailCard card : pageThumbnails) {
+            card.zoomProperty().set(newZoom);
+        }
+    }
+    
+    // ==========================================
+    // Progressive Loading Handlers
+    // ==========================================
+    
+    private int calculateInitialBatchSize() {
+        // Return configured initial batch size (30 pages)
+        // This allows ~3 columns × 10 rows on typical screen
+        return INITIAL_BATCH_SIZE;
+    }
+    
+    private void loadPageBatch(int startPage, int endPage) {
+        if (selectedFile == null) {
+            return;
+        }
+        
+        // Cancel any ongoing load task
+        if (currentLoadTask != null && currentLoadTask.isRunning()) {
+            currentLoadTask.cancel();
+        }
+        
+        // Set loading state
+        isLoadingProperty.set(true);
+        
+        Platform.runLater(() -> {
+            if (loadingProgressIndicator != null) {
+                loadingProgressIndicator.setVisible(true);
+                loadingProgressIndicator.setManaged(true);
+            }
+            if (loadMoreButton != null) loadMoreButton.setDisable(true);
+            if (loadAllButton != null) loadAllButton.setDisable(true);
+        });
+        
+        currentLoadTask = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                double zoom = zoomSlider != null ? zoomSlider.getValue() : 1.0;
+                
+                // TASK D: Load pages in batch, ensuring page numbers are correctly assigned
+                // Page label is derived from actual pageIndex (i) which matches 1-based page numbers
+                for (int i = startPage; i <= endPage && i <= totalPageCount; i++) {
+                    if (isCancelled()) {
+                        break;
+                    }
+                    
+                    // pageNum is the actual 1-based page number (matches what users see)
+                    final int pageNum = i;
+                    PageThumbnailCard card = new PageThumbnailCard(pageNum);
+                    card.zoomProperty().set(zoom);
+                    card.setLoading(true);
+                    
+                    // Set delete action
+                    card.setOnDelete(() -> handlePageDelete(card));
+                    
+                    // Set selection change listener
+                    card.setOnSelectionChanged(() -> updateDeselectButtonVisibility());
+                    
+                    Platform.runLater(() -> {
+                        pageThumbnails.add(card);
+                        pageGridContainer.getChildren().add(card);
+                        loadedThumbnailsCountProperty.set(pageThumbnails.size());
+                    });
+                    
+                    // Render thumbnail asynchronously
+                    thumbnailService.generateThumbnailAsync(selectedFile, pageNum - 1, zoom)
+                        .thenAccept(result -> Platform.runLater(() -> {
+                            if (result != null && result.image() != null) {
+                                card.setLoading(false);
+                                card.setThumbnail(result.image());
+                            }
+                        }))
+                        .exceptionally(e -> {
+                            Platform.runLater(() -> card.setLoading(false));
+                            System.err.println("Failed to load thumbnail for page " + pageNum + ": " + e.getMessage());
+                            return null;
+                        });
+                    
+                    // Throttle to avoid overwhelming the thread pool
+                    Thread.sleep(50);
+                    
+                    loadedPageCount = pageNum;
+                    Platform.runLater(() -> updateLoadStatus());
+                }
+                
+                return null;
+            }
+        };
+        
+        currentLoadTask.setOnSucceeded(e -> {
+            isLoadingProperty.set(false);
+            updateEmptyState(); // Update empty state after loading completes
+            if (loadingProgressIndicator != null) {
+                loadingProgressIndicator.setVisible(false);
+                loadingProgressIndicator.setManaged(false);
+            }
+            if (loadMoreButton != null) loadMoreButton.setDisable(false);
+            if (loadAllButton != null) loadAllButton.setDisable(false);
+            
+            // Hide load controls if all pages are loaded
+            if (loadedPageCount >= totalPageCount) {
+                if (loadControlsBox != null) {
+                    loadControlsBox.setVisible(false);
+                    loadControlsBox.setManaged(false);
+                }
+            }
+        });
+        
+        currentLoadTask.setOnFailed(e -> {
+            isLoadingProperty.set(false);
+            updateEmptyState();
+            if (loadingProgressIndicator != null) {
+                loadingProgressIndicator.setVisible(false);
+                loadingProgressIndicator.setManaged(false);
+            }
+            if (loadMoreButton != null) loadMoreButton.setDisable(false);
+            if (loadAllButton != null) loadAllButton.setDisable(false);
+            System.err.println("Load task failed: " + currentLoadTask.getException().getMessage());
+        });
+        
+        currentLoadTask.setOnCancelled(e -> {
+            isLoadingProperty.set(false);
+            updateEmptyState();
+            if (loadingProgressIndicator != null) {
+                loadingProgressIndicator.setVisible(false);
+                loadingProgressIndicator.setManaged(false);
+            }
+            if (loadMoreButton != null) loadMoreButton.setDisable(false);
+            if (loadAllButton != null) loadAllButton.setDisable(false);
+        });
+        
+        new Thread(currentLoadTask).start();
+    }
+    
+    @FXML
+    private void handleLoadMore() {
+        int nextStart = loadedPageCount + 1;
+        int nextEnd = Math.min(nextStart + LOAD_MORE_BATCH_SIZE - 1, totalPageCount);
+        loadPageBatch(nextStart, nextEnd);
+    }
+    
+    @FXML
+    private void handleLoadAll() {
+        int nextStart = loadedPageCount + 1;
+        loadPageBatch(nextStart, totalPageCount);
+    }
+    
+    private void handlePageDelete(PageThumbnailCard card) {
+        // Remove from UI and list
+        pageGridContainer.getChildren().remove(card);
+        pageThumbnails.remove(card);
+        loadedPageCount--;
+        totalPageCount--;
+        updateLoadStatus();
+        updateDeselectButtonVisibility();
+    }
+    
+    @FXML
+    private void handleDeselectAll() {
+        for (PageThumbnailCard card : pageThumbnails) {
+            card.setSelected(false);
+        }
+        updateDeselectButtonVisibility();
+    }
+    
+    private void updateDeselectButtonVisibility() {
+        if (deselectAllButton != null) {
+            boolean hasSelection = pageThumbnails.stream().anyMatch(PageThumbnailCard::isSelected);
+            deselectAllButton.setVisible(hasSelection);
+            deselectAllButton.setManaged(hasSelection);
+        }
+    }
+    
+    private void updateLoadStatus() {
+        if (pageLoadStatusLabel != null) {
+            ResourceBundle messages = LocaleManager.getBundle();
+            String status = String.format(
+                messages.getString("split.showingCount"),
+                loadedPageCount,
+                totalPageCount
+            );
+            pageLoadStatusLabel.setText(status);
+        }
     }
 }
