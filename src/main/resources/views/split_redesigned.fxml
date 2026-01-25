@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.pdftoolkit.controllers.SplitControllerRedesigned"
+           styleClass="content-root">
+
+    <!-- Main Two-Panel Layout -->
+    <HBox styleClass="two-panel-layout" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+        
+        <!-- LEFT PANEL: All Page Previews -->
+        <VBox styleClass="left-panel" HBox.hgrow="ALWAYS" minWidth="400" prefWidth="500">
+            <!-- Header -->
+            <VBox spacing="8" styleClass="panel-header">
+                <padding>
+                    <Insets top="24" right="24" bottom="16" left="24"/>
+                </padding>
+                <Label text="%split.pagePreview" styleClass="panel-title"/>
+                <Label fx:id="selectedFileInfoLabel" text="%split.noFileSelected" 
+                       styleClass="instruction-text" wrapText="true"/>
+            </VBox>
+            
+            <!-- Scrollable Page Grid -->
+            <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="content-scroll" 
+                       VBox.vgrow="ALWAYS"
+                       style="-fx-background-color: transparent; -fx-border-width: 0;">
+                <VBox spacing="16">
+                    <padding>
+                        <Insets top="8" right="24" bottom="24" left="24"/>
+                    </padding>
+                    
+                    <!-- Page Thumbnails Grid Container -->
+                    <FlowPane fx:id="pageGridContainer" hgap="12" vgap="12" 
+                             prefWrapLength="400" alignment="TOP_LEFT">
+                        <!-- Page thumbnail cards will be added here dynamically -->
+                    </FlowPane>
+                    
+                    <!-- Empty State (shown when no file selected) -->
+                    <StackPane fx:id="pageEmptyStatePane" minHeight="400" visible="true" managed="true">
+                        <VBox alignment="CENTER" spacing="16">
+                            <Label text="�" style="-fx-font-size: 64px; -fx-opacity: 0.4;"/>
+                            <Label text="%split.noFileSelected" styleClass="empty-state"/>
+                            <Label text="%split.selectFileHint" styleClass="hint-label" 
+                                  wrapText="true" textAlignment="CENTER" maxWidth="300"/>
+                        </VBox>
+                    </StackPane>
+                </VBox>
+            </ScrollPane>
+        </VBox>
+        
+        <!-- RIGHT PANEL: Configuration & Primary CTA -->
+        <BorderPane styleClass="right-panel" minWidth="380" prefWidth="420" maxWidth="480">
+            <!-- Scrollable Configuration Area -->
+            <center>
+                <ScrollPane fitToWidth="true" styleClass="content-scroll" 
+                           style="-fx-background-color: transparent; -fx-border-width: 0;">
+                    <VBox spacing="24">
+                        <padding>
+                            <Insets top="24" right="24" bottom="16" left="24"/>
+                        </padding>
+                        
+                        <!-- Title -->
+                        <VBox spacing="4">
+                            <Label text="%split.title" styleClass="panel-title"/>
+                            <Label text="%split.subtitle" styleClass="panel-subtitle" wrapText="true"/>
+                        </VBox>
+                        
+                        <Separator/>
+                        
+                        <!-- Step 1: File Selection -->
+                        <VBox spacing="12">
+                            <Label text="%split.step1" styleClass="section-label"/>
+                            <VBox fx:id="fileDropZone" styleClass="drop-zone" alignment="CENTER" 
+                                 spacing="12" minHeight="100">
+                                <Label text="📄" style="-fx-font-size: 32px; -fx-opacity: 0.7;"/>
+                                <Label text="%split.dropHint" styleClass="drop-hint" wrapText="true" textAlignment="CENTER"/>
+                            </VBox>
+                            <Button fx:id="selectFileButton" text="%split.selectFileButton" 
+                                   styleClass="secondary-button" onAction="#handleSelectFile" maxWidth="Infinity"/>
+                        </VBox>
+                        
+                        <Separator/>
+                        
+                        <!-- Step 2: Mode Selector -->
+                        <VBox spacing="12" fx:id="modeSection" disable="true">
+                            <Label text="%split.step2" styleClass="section-label"/>
+                            
+                            <!-- Segmented Toggle for Split Mode -->
+                            <HBox spacing="0" styleClass="segmented-control">
+                                <ToggleButton fx:id="splitByRangeToggle" text="%split.splitByRange" 
+                                             styleClass="toggle-left" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                                <ToggleButton fx:id="extractPagesToggle" text="%split.extractPages" 
+                                             styleClass="toggle-right" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                            </HBox>
+                            
+                            <!-- Range Type Selection (Custom / Fixed) -->
+                            <VBox spacing="8" fx:id="rangeTypeSection">
+                                <Label text="%split.rangeType" styleClass="field-label"/>
+                                <HBox spacing="8" styleClass="choice-card-group">
+                                    <ToggleButton fx:id="customRangesToggle" text="%split.customRanges" 
+                                                 styleClass="choice-card" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                                    <ToggleButton fx:id="fixedRangesToggle" text="%split.fixedRanges" 
+                                                 styleClass="choice-card" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                                </HBox>
+                            </VBox>
+                        </VBox>
+                        
+                        <Separator fx:id="rangeEditorSeparator" disable="true"/>
+                        
+                        <!-- Range Editor (for selected range card) -->
+                        <VBox spacing="12" fx:id="rangeEditorSection" disable="true" visible="true" managed="true">
+                            <Label fx:id="rangeEditorTitle" text="%split.rangeEditor" styleClass="section-label"/>
+                            
+                            <HBox spacing="12" alignment="CENTER_LEFT">
+                                <VBox spacing="6" HBox.hgrow="ALWAYS">
+                                    <Label text="%split.from" styleClass="field-label"/>
+                                    <Spinner fx:id="fromPageSpinner" editable="true" 
+                                            styleClass="range-spinner" maxWidth="Infinity"/>
+                                </VBox>
+                                <Label text="—" style="-fx-font-size: 20px; -fx-padding: 22 0 0 0; -fx-text-fill: #94a3b8;"/>
+                                <VBox spacing="6" HBox.hgrow="ALWAYS">
+                                    <Label text="%split.to" styleClass="field-label"/>
+                                    <Spinner fx:id="toPageSpinner" editable="true" 
+                                            styleClass="range-spinner" maxWidth="Infinity"/>
+                                </VBox>
+                            </HBox>
+                            
+                            <!-- Validation message -->
+                            <Label fx:id="validationLabel" styleClass="validation-error" 
+                                  visible="false" wrapText="true" managed="false"/>
+                        </VBox>
+                        
+                        <!-- Extract Pages Section (for Extract mode) -->
+                        <VBox spacing="12" fx:id="extractPagesSection" disable="true" visible="false" managed="false">
+                            <Label text="%split.extractPagesSpec" styleClass="section-label"/>
+                            
+                            <VBox spacing="8">
+                                <Label text="%split.pageSpecification" styleClass="field-label"/>
+                                <TextField fx:id="extractPagesField" promptText="%split.extractPagesPlaceholder" 
+                                          styleClass="field-input" maxWidth="Infinity"/>
+                                <Label text="%split.extractPagesHint" styleClass="hint-label" wrapText="true"/>
+                            </VBox>
+                            
+                            <!-- Extract Validation message -->
+                            <Label fx:id="extractValidationLabel" styleClass="validation-error" 
+                                  visible="false" wrapText="true" managed="false"/>
+                        </VBox>
+                        
+                        <Separator/>
+                        
+                        <!-- Step 3: Output Settings -->
+                        <VBox spacing="12" fx:id="outputSection" disable="true">
+                            <Label text="%split.step3" styleClass="section-label"/>
+                            
+                            <VBox spacing="8">
+                                <Label text="%split.outputFolder" styleClass="field-label"/>
+                                <HBox spacing="8">
+                                    <TextField fx:id="outputFolderField" HBox.hgrow="ALWAYS" 
+                                              editable="false" styleClass="field-input"
+                                              promptText="%split.chooseFolder"/>
+                                    <Button fx:id="browseFolderButton" styleClass="icon-button" 
+                                           onAction="#handleBrowseOutputFolder">
+                                        <graphic>
+                                            <Label text="📁" style="-fx-font-size: 18px;"/>
+                                        </graphic>
+                                        <tooltip>
+                                            <Tooltip text="%split.chooseFolder"/>
+                                        </tooltip>
+                                    </Button>
+                                </HBox>
+                                <Label fx:id="outputInfoLabel" text="%split.outputInfo" 
+                                      styleClass="hint-label" visible="false" wrapText="true"/>
+                            </VBox>
+                        </VBox>
+                    </VBox>
+                </ScrollPane>
+            </center>
+            
+            <!-- Bottom: Primary CTA Bar (Sticky) -->
+            <bottom>
+                <VBox styleClass="cta-bar" spacing="12">
+                    <padding>
+                        <Insets top="16" right="24" bottom="24" left="24"/>
+                    </padding>
+                    <Separator/>
+                    <Button fx:id="splitButton" text="%split.splitNow" styleClass="primary-button" 
+                           defaultButton="true" onAction="#handleSplit" disable="true" maxWidth="Infinity"/>
+                    <Button fx:id="backButton" text="%app.back" styleClass="secondary-button" 
+                           onAction="#handleBack" maxWidth="Infinity"/>
+                </VBox>
+            </bottom>
+        </BorderPane>
+    </HBox>
+
+    <!-- Progress Overlay -->
+    <StackPane fx:id="progressOverlay" styleClass="progress-overlay" visible="false" managed="false">
+        <VBox alignment="CENTER" spacing="24" styleClass="progress-card" maxWidth="480" maxHeight="400">
+            <VBox alignment="CENTER" spacing="16">
+                <Label fx:id="progressTitle" text="%split.processing" styleClass="progress-title"/>
+                <ProgressBar fx:id="progressBar" prefWidth="360" styleClass="progress-bar" progress="-1"/>
+                <Label fx:id="progressMessage" text="%progress.processing" styleClass="progress-message" wrapText="true" textAlignment="CENTER"/>
+            </VBox>
+            
+            <Button fx:id="cancelProcessButton" text="%app.cancel" styleClass="secondary-button" 
+                   onAction="#handleCancelProcess"/>
+            
+            <!-- Success Pane (Initially Hidden) -->
+            <VBox fx:id="successPane" alignment="CENTER" spacing="16" visible="false" managed="false">
+                <Label text="✓" styleClass="success-icon" style="-fx-font-size: 40px;"/>
+                <Label fx:id="successMessage" text="%split.success" 
+                      styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="360"/>
+                <HBox spacing="12" alignment="CENTER">
+                    <Button fx:id="openFolderButton" text="%split.openFolder" 
+                           styleClass="secondary-button" onAction="#handleOpenFolder"/>
+                    <Button fx:id="processAnotherButton" text="%split.processAnother" 
+                           styleClass="primary-button" onAction="#handleProcessAnother"/>
+                    <Button fx:id="closeSuccessButton" text="%app.close" 
+                           styleClass="secondary-button" onAction="#handleCloseSuccess"/>
+                </HBox>
+            </VBox>
+        </VBox>
+    </StackPane>
+    
+    <!-- Delete Confirmation Modal -->
+    <StackPane fx:id="deleteConfirmOverlay" styleClass="modal-overlay" visible="false" managed="false">
+        <VBox alignment="CENTER" spacing="20" styleClass="modal-card" maxWidth="420" maxHeight="280">
+            <VBox alignment="CENTER" spacing="12">
+                <Label text="🗑️" style="-fx-font-size: 48px; -fx-opacity: 0.9;"/>
+                <Label fx:id="deleteConfirmTitle" text="%split.confirmDeleteTitle" 
+                      styleClass="modal-title" wrapText="true" textAlignment="CENTER"/>
+                <Label fx:id="deleteConfirmMessage" text="%split.confirmDeleteMessage" 
+                      styleClass="modal-message" wrapText="true" textAlignment="CENTER" maxWidth="360"/>
+            </VBox>
+            
+            <HBox spacing="12" alignment="CENTER">
+                <Button fx:id="cancelDeleteButton" text="%app.cancel" 
+                       styleClass="secondary-button" onAction="#handleCancelDelete" prefWidth="100"/>
+                <Button fx:id="confirmDeleteButton" text="%app.delete" 
+                       styleClass="danger-button" onAction="#handleConfirmDelete" prefWidth="100"/>
+            </HBox>
+        </VBox>
+    </StackPane>
+
+</StackPane>

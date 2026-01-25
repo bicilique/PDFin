@@ -19,7 +19,7 @@ public class StubMergeOperation implements PdfOperation {
             @Override
             protected File call() throws Exception {
                 updateMessage("Preparing to merge " + inputFiles.size() + " files...");
-                updateProgress(0, 100);
+                updateProgress(0, inputFiles.size() + 1);
                 
                 Thread.sleep(500);
                 
@@ -29,13 +29,15 @@ public class StubMergeOperation implements PdfOperation {
                         return null;
                     }
                     
-                    updateMessage("Processing " + inputFiles.get(i).getName() + "...");
-                    updateProgress(i + 1, inputFiles.size());
+                    String fileName = inputFiles.get(i).getName();
+                    updateMessage(String.format("Merging file %d of %d: %s", 
+                                               i + 1, inputFiles.size(), fileName));
+                    updateProgress(i + 1, inputFiles.size() + 1);
                     Thread.sleep(800);
                 }
                 
-                updateMessage("Writing output file...");
-                updateProgress(100, 100);
+                updateMessage("Writing merged PDF to disk...");
+                updateProgress(inputFiles.size() + 1, inputFiles.size() + 1);
                 Thread.sleep(500);
                 
                 // Simulate output file

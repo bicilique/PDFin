@@ -21,30 +21,52 @@ public class StubSplitOperation implements PdfOperation {
                 String rangeInput = (String) parameters.get("rangeInput");
                 
                 updateMessage("Analyzing PDF structure...");
-                updateProgress(0, 100);
+                updateProgress(0, 5);
                 Thread.sleep(600);
                 
                 if (isCancelled()) {
                     return null;
                 }
                 
-                updateMessage("Splitting pages (" + splitMode + ")...");
-                updateProgress(50, 100);
-                Thread.sleep(1200);
+                // Count ranges to split
+                int rangeCount = countRanges(rangeInput);
+                
+                updateMessage("Preparing to split into " + rangeCount + " ranges...");
+                updateProgress(1, rangeCount + 2);
+                Thread.sleep(400);
+                
+                // Simulate processing each range
+                for (int i = 0; i < rangeCount; i++) {
+                    if (isCancelled()) {
+                        return null;
+                    }
+                    
+                    updateMessage(String.format("Processing range %d of %d...", i + 1, rangeCount));
+                    updateProgress(i + 2, rangeCount + 2);
+                    Thread.sleep(800);
+                }
                 
                 if (isCancelled()) {
                     return null;
                 }
                 
-                updateMessage("Generating output files...");
-                updateProgress(90, 100);
+                updateMessage("Writing output files to disk...");
+                updateProgress(rangeCount + 1, rangeCount + 2);
                 Thread.sleep(500);
                 
-                updateProgress(100, 100);
-                updateMessage("Split complete!");
+                updateProgress(rangeCount + 2, rangeCount + 2);
+                updateMessage("Split complete! Created " + rangeCount + " files.");
                 
                 // Simulate output folder (multiple files created)
                 return outputFolder;
+            }
+            
+            private int countRanges(String rangeInput) {
+                if (rangeInput == null || rangeInput.trim().isEmpty()) {
+                    return 1;
+                }
+                // Count commas + 1 for simple range counting
+                return rangeInput.split(",").length;
             }
         };
     }
