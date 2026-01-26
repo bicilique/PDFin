@@ -1,0 +1,574 @@
+package com.pdftoolkit.controllers;
+
+import com.pdftoolkit.models.PdfItem;
+import com.pdftoolkit.navigation.AppNavigator;
+import com.pdftoolkit.navigation.AppState;
+import com.pdftoolkit.services.PdfMergeService;
+import com.pdftoolkit.services.PdfThumbnailService;
+import com.pdftoolkit.ui.PdfItemCell;
+import com.pdftoolkit.utils.AppPaths;
+import com.pdftoolkit.utils.LocaleManager;
+import javafx.application.Platform;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Production-ready Merge PDF Controller with all UX improvements:
+ * 
+ * 1. Persistent state across language/theme changes (uses AppState.MergeToolState)
+ * 2. No unnecessary re-renders or thumbnail reloads (ListView with custom cell)
+ * 3. Remove button per item
+ * 4. Full drag & drop support (reorder + OS files)
+ * 5. Async metadata loading with caching
+ * 6. Responsive UI (no blocking)
+ */
+public class MergeControllerRedesigned {
+
+    @FXML private ListView<PdfItem> pdfListView;
+    @FXML private StackPane emptyStatePane;
+    @FXML private Label instructionLabel;
+    @FXML private Label filesCountLabel;
+    @FXML private Label totalPagesLabel;
+    @FXML private TextField outputFolderField;
+    @FXML private TextField outputFilenameField;
+    @FXML private Button addPdfButton;
+    @FXML private Button mergeButton;
+    @FXML private Button backButton;
+    
+    // Progress overlay elements
+    @FXML private StackPane progressOverlay;
+    @FXML private Label progressTitle;
+    @FXML private ProgressBar progressBar;
+    @FXML private Label progressMessage;
+    @FXML private Button cancelProcessButton;
+    @FXML private VBox successPane;
+    @FXML private Label successMessage;
+    @FXML private Button openFolderButton;
+    @FXML private Button processAnotherButton;
+
+    private AppState.MergeToolState state;
+    private final PdfMergeService mergeService = new PdfMergeService();
+    private final PdfThumbnailService thumbnailService = new PdfThumbnailService();
+    private Task<File> currentTask;
+    private File lastOutputFile;
+
+    @FXML
+    private void initialize() {
+        // Get the persistent state from AppState
+        state = AppState.getInstance().getMergeToolState();
+        
+        // Setup ListView with custom cell factory
+        pdfListView.setItems(state.getPdfItems());
+        pdfListView.setCellFactory(lv -> new PdfItemCell(this::handleRemoveItem));
+        
+        // Setup empty state placeholder
+        pdfListView.setPlaceholder(emptyStatePane);
+        
+        // Setup drag & drop on ListView for OS files
+        setupExternalDragAndDrop();
+        
+        // Setup internal drag & drop for reordering
+        setupInternalDragAndDrop();
+        
+        // Setup state listeners
+        setupStateListeners();
+        
+        // Initialize output folder from state or default
+        if (state.getOutputFolder() != null) {
+            outputFolderField.setText(state.getOutputFolder());
+        } else {
+            outputFolderField.setText(AppPaths.getDefaultOutputPath());
+        }
+        
+        if (state.getOutputFilename() != null) {
+            outputFilenameField.setText(state.getOutputFilename());
+        } else {
+            outputFilenameField.setText("merged.pdf");
+        }
+        
+        // Bind output fields to state
+        outputFolderField.textProperty().addListener((obs, oldVal, newVal) -> 
+            state.setOutputFolder(newVal)
+        );
+        outputFilenameField.textProperty().addListener((obs, oldVal, newVal) -> 
+            state.setOutputFilename(newVal)
+        );
+        
+        // Setup locale listener for live language switching
+        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> updateTexts());
+        
+        // Initial update
+        updateTexts();
+        updateSummary();
+        updateMergeButtonState();
+    }
+    
+    /**
+     * Setup listeners for state changes to update UI reactively.
+     */
+    private void setupStateListeners() {
+        state.getPdfItems().addListener((ListChangeListener<PdfItem>) c -> {
+            updateSummary();
+            updateMergeButtonState();
+        });
+        
+        // Listen to each item's loading/error state
+        state.getPdfItems().addListener((ListChangeListener<PdfItem>) c -> {
+            while (c.next()) {
+                if (c.wasAdded()) {
+                    for (PdfItem item : c.getAddedSubList()) {
+                        item.loadingProperty().addListener((obs, oldVal, newVal) -> 
+                            updateMergeButtonState()
+                        );
+                        item.errorProperty().addListener((obs, oldVal, newVal) -> 
+                            updateMergeButtonState()
+                        );
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Update all text labels based on current locale.
+     * This is called when language changes - it does NOT clear the file list.
+     */
+    private void updateTexts() {
+        // Summary labels are updated by updateSummary()
+        // Other texts are bound via FXML %keys
+    }
+    
+    /**
+     * Update summary labels (file count and total pages).
+     */
+    private void updateSummary() {
+        int fileCount = state.getPdfItems().size();
+        int totalPages = state.getTotalPages();
+        
+        filesCountLabel.setText(fileCount + " " + LocaleManager.getString("merge.files"));
+        totalPagesLabel.setText(totalPages + " " + LocaleManager.getString("common.pages"));
+    }
+    
+    /**
+     * Update merge button enabled/disabled state based on validation.
+     */
+    private void updateMergeButtonState() {
+        boolean canMerge = state.getPdfItems().size() >= 2 
+                        && !state.hasLoadingItems() 
+                        && !state.hasErrors();
+        mergeButton.setDisable(!canMerge);
+    }
+    
+    /**
+     * Setup external drag & drop from OS (add PDF files).
+     */
+    private void setupExternalDragAndDrop() {
+        pdfListView.setOnDragOver(this::handleExternalDragOver);
+        pdfListView.setOnDragDropped(this::handleExternalDragDropped);
+        
+        // Also enable on empty state
+        emptyStatePane.setOnDragOver(this::handleExternalDragOver);
+        emptyStatePane.setOnDragDropped(this::handleExternalDragDropped);
+    }
+    
+    private void handleExternalDragOver(DragEvent event) {
+        Dragboard db = event.getDragboard();
+        if (db.hasFiles()) {
+            // Check if any files are PDFs
+            List<File> pdfFiles = db.getFiles().stream()
+                .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
+                .collect(Collectors.toList());
+            
+            if (!pdfFiles.isEmpty()) {
+                event.acceptTransferModes(TransferMode.COPY);
+            }
+        }
+        event.consume();
+    }
+    
+    private void handleExternalDragDropped(DragEvent event) {
+        Dragboard db = event.getDragboard();
+        boolean success = false;
+        
+        if (db.hasFiles()) {
+            List<File> pdfFiles = db.getFiles().stream()
+                .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
+                .collect(Collectors.toList());
+            
+            if (!pdfFiles.isEmpty()) {
+                addPdfFiles(pdfFiles);
+                success = true;
+            }
+            
+            // Show feedback if non-PDF files were dropped
+            int totalFiles = db.getFiles().size();
+            if (pdfFiles.size() < totalFiles) {
+                showAlert(
+                    LocaleManager.getString("merge.nonPdfIgnored"),
+                    Alert.AlertType.WARNING
+                );
+            }
+        }
+        
+        event.setDropCompleted(success);
+        event.consume();
+    }
+    
+    /**
+     * Setup internal drag & drop for reordering items in the list.
+     */
+    private void setupInternalDragAndDrop() {
+        pdfListView.setOnDragDropped(event -> {
+            Dragboard db = event.getDragboard();
+            if (db.hasString() && !db.hasFiles()) {
+                try {
+                    int draggedIdx = Integer.parseInt(db.getString());
+                    int dropIdx = pdfListView.getSelectionModel().getSelectedIndex();
+                    
+                    if (draggedIdx != dropIdx && dropIdx >= 0) {
+                        ObservableList<PdfItem> items = state.getPdfItems();
+                        PdfItem draggedItem = items.remove(draggedIdx);
+                        
+                        // Adjust target index if dragging down
+                        int targetIdx = draggedIdx < dropIdx ? dropIdx - 1 : dropIdx;
+                        items.add(targetIdx, draggedItem);
+                        
+                        // Restore selection
+                        pdfListView.getSelectionModel().select(targetIdx);
+                        event.setDropCompleted(true);
+                    }
+                } catch (NumberFormatException e) {
+                    // Not an internal drag, ignore
+                }
+            }
+            event.consume();
+        });
+    }
+    
+    /**
+     * Add PDF files to the list and load their metadata asynchronously.
+     */
+    private void addPdfFiles(List<File> files) {
+        for (File file : files) {
+            Path path = file.toPath();
+            
+            // Check for duplicates
+            if (state.getPdfItems().stream().anyMatch(item -> item.getPath().equals(path))) {
+                continue; // Skip duplicate
+            }
+            
+            // Create PdfItem and add to state
+            PdfItem item = new PdfItem(path);
+            state.addPdfItem(item);
+            
+            // Load metadata asynchronously
+            loadPdfMetadataAsync(item);
+        }
+    }
+    
+    /**
+     * Load PDF metadata (file size, page count, thumbnail) asynchronously.
+     * Uses thumbnail cache to avoid regenerating existing thumbnails.
+     */
+    private void loadPdfMetadataAsync(PdfItem item) {
+        Task<Void> loadTask = new Task<>() {
+            private long fileSize;
+            private int pageCount;
+            private javafx.scene.image.Image thumbnail;
+            private String error;
+            
+            @Override
+            protected Void call() {
+                try {
+                    Path path = item.getPath();
+                    
+                    // Load file size
+                    fileSize = Files.size(path);
+                    
+                    // Load page count and thumbnail using PDFBox
+                    try (PDDocument document = Loader.loadPDF(path.toFile())) {
+                        pageCount = document.getNumberOfPages();
+                        
+                        // Generate thumbnail for first page (cached by service)
+                        thumbnail = thumbnailService.generateThumbnail(path.toFile(), 0, 1.0);
+                    }
+                    
+                } catch (IOException e) {
+                    error = "Failed to read PDF: " + e.getMessage();
+                } catch (Exception e) {
+                    error = "Error: " + e.getMessage();
+                }
+                return null;
+            }
+            
+            @Override
+            protected void succeeded() {
+                item.setFileSizeBytes(fileSize);
+                item.setPageCount(pageCount);
+                if (thumbnail != null) {
+                    item.setThumbnail(thumbnail);
+                }
+                if (error != null) {
+                    item.setError(error);
+                }
+                item.setLoading(false);
+            }
+            
+            @Override
+            protected void failed() {
+                item.setError("Failed to load PDF metadata");
+                item.setLoading(false);
+            }
+        };
+        
+        // Run in background thread
+        Thread thread = new Thread(loadTask);
+        thread.setDaemon(true);
+        thread.start();
+    }
+    
+    /**
+     * Handle remove button click from cell.
+     */
+    private void handleRemoveItem(PdfItem item) {
+        state.removePdfItem(item);
+    }
+    
+    @FXML
+    private void handleAddPdf() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle(LocaleManager.getString("merge.addFiles"));
+        fileChooser.getExtensionFilters().add(
+            new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+        );
+        
+        List<File> selectedFiles = fileChooser.showOpenMultipleDialog(
+            pdfListView.getScene().getWindow()
+        );
+        
+        if (selectedFiles != null && !selectedFiles.isEmpty()) {
+            addPdfFiles(selectedFiles);
+        }
+    }
+    
+    @FXML
+    private void handleBrowseOutputFolder() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle(LocaleManager.getString("merge.chooseFolder"));
+        
+        File currentFolder = new File(outputFolderField.getText());
+        if (currentFolder.exists() && currentFolder.isDirectory()) {
+            chooser.setInitialDirectory(currentFolder);
+        }
+        
+        File selectedDir = chooser.showDialog(outputFolderField.getScene().getWindow());
+        if (selectedDir != null) {
+            outputFolderField.setText(selectedDir.getAbsolutePath());
+        }
+    }
+    
+    @FXML
+    private void handleMerge() {
+        // Validation
+        if (state.getPdfItems().size() < 2) {
+            showAlert(LocaleManager.getString("validation.minTwoFiles"), Alert.AlertType.WARNING);
+            return;
+        }
+        
+        if (state.hasLoadingItems()) {
+            showAlert(LocaleManager.getString("validation.stillLoading"), Alert.AlertType.WARNING);
+            return;
+        }
+        
+        if (state.hasErrors()) {
+            showAlert(LocaleManager.getString("validation.hasErrors"), Alert.AlertType.ERROR);
+            return;
+        }
+        
+        String outputPath = outputFolderField.getText();
+        if (outputPath == null || outputPath.isEmpty()) {
+            showAlert(LocaleManager.getString("validation.invalidFolder"), Alert.AlertType.WARNING);
+            return;
+        }
+        
+        String filename = outputFilenameField.getText();
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = "merged.pdf";
+        }
+        
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            filename += ".pdf";
+        }
+        
+        // Show progress overlay
+        showProgressOverlay();
+        
+        // Create merge task
+        final String finalFilename = filename;
+        final File outputDir = new File(outputPath);
+        final File outputFile = new File(outputDir, finalFilename);
+        final List<File> inputFiles = state.getPdfItems().stream()
+                .map(item -> item.getPath().toFile())
+                .collect(Collectors.toList());
+        
+        currentTask = new Task<File>() {
+            @Override
+            protected File call() throws Exception {
+                updateMessage(LocaleManager.getString("merge.preparingFiles"));
+                updateProgress(0, inputFiles.size() + 1);
+                
+                Thread.sleep(300); // Brief pause for UI feedback
+                
+                // Use real merge service
+                for (int i = 0; i < inputFiles.size(); i++) {
+                    if (isCancelled()) {
+                        updateMessage(LocaleManager.getString("common.cancelled"));
+                        return null;
+                    }
+                    
+                    String fileName = inputFiles.get(i).getName();
+                    updateMessage(String.format(
+                        LocaleManager.getString("merge.processingFile"), 
+                        i + 1, inputFiles.size(), fileName
+                    ));
+                    updateProgress(i + 1, inputFiles.size() + 1);
+                }
+                
+                // Perform actual merge
+                updateMessage(LocaleManager.getString("merge.merging"));
+                File result = mergeService.mergeFiles(inputFiles, outputFile);
+                
+                updateProgress(inputFiles.size() + 1, inputFiles.size() + 1);
+                updateMessage(LocaleManager.getString("merge.complete"));
+                
+                return result;
+            }
+            
+            @Override
+            protected void succeeded() {
+                lastOutputFile = getValue();
+                showSuccess();
+                
+                // Add to recent files
+                if (lastOutputFile != null) {
+                    AppState.getInstance().addRecentFile("Merge", lastOutputFile);
+                }
+            }
+            
+            @Override
+            protected void failed() {
+                hideProgressOverlay();
+                showAlert(
+                    LocaleManager.getString("error.mergeFailed") + "\n" + getException().getMessage(),
+                    Alert.AlertType.ERROR
+                );
+            }
+            
+            @Override
+            protected void cancelled() {
+                hideProgressOverlay();
+                showAlert(LocaleManager.getString("common.cancelled"), Alert.AlertType.INFORMATION);
+            }
+        };
+        
+        // Bind progress
+        progressBar.progressProperty().bind(currentTask.progressProperty());
+        progressMessage.textProperty().bind(currentTask.messageProperty());
+        
+        // Setup cancel button
+        cancelProcessButton.setOnAction(e -> {
+            if (currentTask != null && currentTask.isRunning()) {
+                currentTask.cancel();
+            }
+        });
+        
+        // Run task
+        Thread thread = new Thread(currentTask);
+        thread.setDaemon(true);
+        thread.start();
+    }
+    
+    @FXML
+    private void handleBack() {
+        AppNavigator.navigateTo(AppNavigator.View.HOME);
+    }
+    
+    @FXML
+    private void handleCancelProcess() {
+        if (currentTask != null && currentTask.isRunning()) {
+            currentTask.cancel();
+        }
+    }
+    
+    @FXML
+    private void handleOpenFolder() {
+        if (lastOutputFile != null && lastOutputFile.exists()) {
+            try {
+                java.awt.Desktop.getDesktop().open(lastOutputFile.getParentFile());
+            } catch (IOException e) {
+                showAlert("Failed to open folder: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+    
+    @FXML
+    private void handleProcessAnother() {
+        hideProgressOverlay();
+        // Optionally clear the list or keep it for another merge
+    }
+    
+    private void showProgressOverlay() {
+        progressOverlay.setVisible(true);
+        progressOverlay.setManaged(true);
+        successPane.setVisible(false);
+        successPane.setManaged(false);
+        cancelProcessButton.setVisible(true);
+        cancelProcessButton.setManaged(true);
+    }
+    
+    private void hideProgressOverlay() {
+        progressOverlay.setVisible(false);
+        progressOverlay.setManaged(false);
+    }
+    
+    private void showSuccess() {
+        successPane.setVisible(true);
+        successPane.setManaged(true);
+        cancelProcessButton.setVisible(false);
+        cancelProcessButton.setManaged(false);
+        
+        if (lastOutputFile != null) {
+            successMessage.setText(
+                LocaleManager.getString("merge.successMessage") + "\n" + 
+                lastOutputFile.getName()
+            );
+        }
+    }
+    
+    private void showAlert(String message, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setTitle(type == Alert.AlertType.ERROR ? "Error" : "Information");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+}

@@ -154,25 +154,35 @@ public class AppState {
     
     /**
      * Merge tool state - persists across navigation and language/theme changes.
+     * Uses ObservableList to support reactive UI updates.
      */
     public static class MergeToolState {
-        private final List<File> selectedFiles = new ArrayList<>();
+        private final ObservableList<com.pdftoolkit.models.PdfItem> pdfItems;
         private String outputFolder;
+        private String outputFilename;
         
-        public List<File> getSelectedFiles() {
-            return selectedFiles;
+        public MergeToolState() {
+            this.pdfItems = FXCollections.observableArrayList();
+            this.outputFilename = "merged.pdf";
         }
         
-        public void addFile(File file) {
-            selectedFiles.add(file);
+        public ObservableList<com.pdftoolkit.models.PdfItem> getPdfItems() {
+            return pdfItems;
         }
         
-        public void removeFile(File file) {
-            selectedFiles.remove(file);
+        public void addPdfItem(com.pdftoolkit.models.PdfItem item) {
+            // Prevent duplicates based on path
+            if (pdfItems.stream().noneMatch(existing -> existing.getPath().equals(item.getPath()))) {
+                pdfItems.add(item);
+            }
         }
         
-        public void clearFiles() {
-            selectedFiles.clear();
+        public void removePdfItem(com.pdftoolkit.models.PdfItem item) {
+            pdfItems.remove(item);
+        }
+        
+        public void clearPdfItems() {
+            pdfItems.clear();
         }
         
         public String getOutputFolder() {
@@ -183,9 +193,41 @@ public class AppState {
             this.outputFolder = folder;
         }
         
+        public String getOutputFilename() {
+            return outputFilename;
+        }
+        
+        public void setOutputFilename(String filename) {
+            this.outputFilename = filename;
+        }
+        
+        /**
+         * Get total page count from all PDF items.
+         */
+        public int getTotalPages() {
+            return pdfItems.stream()
+                    .mapToInt(com.pdftoolkit.models.PdfItem::getPageCount)
+                    .sum();
+        }
+        
+        /**
+         * Check if any items are still loading.
+         */
+        public boolean hasLoadingItems() {
+            return pdfItems.stream().anyMatch(com.pdftoolkit.models.PdfItem::isLoading);
+        }
+        
+        /**
+         * Check if any items have errors.
+         */
+        public boolean hasErrors() {
+            return pdfItems.stream().anyMatch(com.pdftoolkit.models.PdfItem::hasError);
+        }
+        
         public void clear() {
-            selectedFiles.clear();
+            pdfItems.clear();
             outputFolder = null;
+            outputFilename = "merged.pdf";
         }
     }
 }

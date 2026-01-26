@@ -26,20 +26,21 @@
             
             <!-- PDF List Container with Drag & Drop -->
             <VBox fx:id="pdfListContainer" styleClass="pdf-list-container" VBox.vgrow="ALWAYS" spacing="8">
-                <ScrollPane fitToWidth="true" fitToHeight="true" VBox.vgrow="ALWAYS" 
-                           styleClass="content-scroll" style="-fx-background-color: transparent;">
-                    <VBox fx:id="cardListBox" spacing="8" minHeight="300">
-                        <!-- PDF cards will be added here dynamically -->
-                        <!-- Empty state placeholder -->
-                        <StackPane fx:id="emptyStatePane" minHeight="300">
-                            <VBox alignment="CENTER" spacing="16">
-                                <Label text="📄" style="-fx-font-size: 64px; -fx-opacity: 0.4;"/>
-                                <Label text="%merge.emptyState" styleClass="empty-state"/>
-                                <Label text="%merge.emptyStateHint" styleClass="hint-label"/>
-                            </VBox>
-                        </StackPane>
+                
+                <!-- Empty State (Shown when list is empty) -->
+                <StackPane fx:id="emptyStatePane" minHeight="300" VBox.vgrow="ALWAYS">
+                    <VBox alignment="CENTER" spacing="16">
+                        <Label text="📄" style="-fx-font-size: 64px; -fx-opacity: 0.4;"/>
+                        <Label text="%merge.emptyState" styleClass="empty-state"/>
+                        <Label text="%merge.emptyStateHint" styleClass="hint-label"/>
                     </VBox>
-                </ScrollPane>
+                </StackPane>
+                
+                <!-- PDF ListView (Shown when items exist) -->
+                <ListView fx:id="pdfListView" VBox.vgrow="ALWAYS" visible="false" managed="false"
+                         styleClass="pdf-list-view" style="-fx-background-color: transparent;">
+                    <!-- Custom cell factory will be set in controller -->
+                </ListView>
             </VBox>
             
             <!-- FAB for Add PDF (Bottom Right of Left Panel) -->
