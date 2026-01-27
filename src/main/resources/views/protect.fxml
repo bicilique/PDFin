@@ -4,120 +4,209 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<ScrollPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.pdftoolkit.controllers.ProtectController"
-            fitToWidth="true" fitToHeight="true"
-            styleClass="content-scroll">
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.pdftoolkit.controllers.ProtectController"
+           styleClass="lock-pdf-root">
 
-<StackPane>
-
-    <VBox styleClass="tool-view" spacing="24">
-        <padding>
-            <Insets top="40" right="40" bottom="40" left="40"/>
-        </padding>
-
-        <!-- Header -->
-        <VBox spacing="8">
-            <Label text="%protect.title" styleClass="page-title"/>
-            <Label text="%protect.subtitle" styleClass="page-subtitle"/>
-        </VBox>
-
-        <Separator/>
-
-        <!-- Step 1: Pilih Berkas -->
-        <VBox spacing="16">
-            <Label text="%protect.step1" styleClass="step-title"/>
+    <!-- Main Two-Pane Layout -->
+    <HBox styleClass="lock-pdf-container" spacing="0">
+        
+        <!-- LEFT PANE: File Staging Area -->
+        <VBox styleClass="files-pane" HBox.hgrow="ALWAYS">
+            <padding>
+                <Insets top="32" right="24" bottom="32" left="32"/>
+            </padding>
             
-            <VBox fx:id="dropZone" styleClass="drop-zone" alignment="CENTER" spacing="12" prefHeight="140">
-                <Label text="%protect.dropHint" styleClass="drop-hint"/>
-                <Label text="%protect.dropHintOr" styleClass="drop-hint-secondary"/>
-                <Button fx:id="addFilesButton" text="%protect.selectFiles" styleClass="secondary-button"/>
-            </VBox>
-
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <ListView fx:id="fileListView" HBox.hgrow="ALWAYS" prefHeight="120" styleClass="file-list"/>
-                <Button fx:id="clearButton" text="%protect.clear" styleClass="secondary-button"/>
+            <!-- Files Pane Header -->
+            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="files-header">
+                <Label text="%lock.filesPane.title" styleClass="pane-title"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="clearFilesButton" text="%lock.clearAll" styleClass="text-button" 
+                        onAction="#clearFiles" visible="false" managed="false"/>
             </HBox>
-        </VBox>
-
-        <Separator/>
-
-        <!-- Step 2: Set Password -->
-        <VBox spacing="16">
-            <Label text="%protect.step2" styleClass="step-title"/>
             
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label text="%protect.password" minWidth="120" styleClass="field-label"/>
-                <PasswordField fx:id="passwordField" HBox.hgrow="ALWAYS" 
-                               promptText="%protect.passwordPlaceholder" styleClass="field-input"/>
-                <Label fx:id="strengthLabel" minWidth="100" styleClass="strength-label"/>
-            </HBox>
-
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label text="%protect.confirm" minWidth="120" styleClass="field-label"/>
-                <PasswordField fx:id="confirmPasswordField" HBox.hgrow="ALWAYS" 
-                               promptText="%protect.confirmPlaceholder" styleClass="field-input"/>
-            </HBox>
-
-            <CheckBox fx:id="showPasswordCheckbox" text="%protect.showPassword" styleClass="check-box"/>
+            <VBox.margin>
+                <Insets bottom="20"/>
+            </VBox.margin>
             
-            <Label text="%protect.passwordHint" 
-                   styleClass="hint-label" wrapText="true"/>
-        </VBox>
-
-        <Separator/>
-
-        <!-- Step 3: Output -->
-        <VBox spacing="16">
-            <Label text="%protect.step3" styleClass="step-title"/>
+            <!-- Drop Zone (Shown when empty) -->
+            <StackPane fx:id="dropZonePane" styleClass="drop-zone-large" VBox.vgrow="ALWAYS">
+                <VBox alignment="CENTER" spacing="20">
+                    <Label text="🔒" styleClass="drop-zone-icon-large"/>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="%lock.dropZone.title" styleClass="drop-zone-title"/>
+                        <Label text="%lock.dropZone.subtitle" styleClass="drop-zone-subtitle"/>
+                    </VBox>
+                    <Button fx:id="selectFilesButton" text="%lock.selectFiles" styleClass="primary-button" 
+                            onAction="#selectFiles"/>
+                    <Label text="%lock.dropZone.formats" styleClass="drop-zone-hint"/>
+                </VBox>
+            </StackPane>
             
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label text="%protect.outputFolder" minWidth="120" styleClass="field-label"/>
-                <TextField fx:id="outputFolderField" HBox.hgrow="ALWAYS" editable="false" 
-                           promptText="%protect.chooseFolder" styleClass="field-input"/>
-                <Button fx:id="browseOutputButton" text="%protect.chooseFolder" styleClass="secondary-button"/>
+            <!-- Files Grid (Shown when files selected) -->
+            <ScrollPane fx:id="filesScrollPane" fitToWidth="true" fitToHeight="true" 
+                        styleClass="files-scroll" visible="false" managed="false" VBox.vgrow="ALWAYS">
+                <VBox fx:id="filesContainer" spacing="12" styleClass="files-grid">
+                    <!-- File cards will be added dynamically -->
+                </VBox>
+            </ScrollPane>
+            
+            <!-- Floating Add Files Button (Shown when files exist) -->
+            <HBox fx:id="addFilesToolbar" alignment="CENTER_LEFT" spacing="12" 
+                  styleClass="add-files-toolbar" visible="false" managed="false">
+                <VBox.margin>
+                    <Insets top="16"/>
+                </VBox.margin>
+                <Button fx:id="addMoreFilesButton" text="%lock.addMoreFiles" styleClass="secondary-button" 
+                        onAction="#selectFiles"/>
+                <Label fx:id="filesCountLabel" text="" styleClass="files-count-label"/>
             </HBox>
-
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label text="%protect.fileName" minWidth="120" styleClass="field-label"/>
-                <TextField fx:id="outputFileNameField" HBox.hgrow="ALWAYS" 
-                           promptText="%protect.fileNamePlaceholder" styleClass="field-input"/>
-            </HBox>
-
-            <Label fx:id="validationLabel" styleClass="validation-error" visible="false" wrapText="true"/>
+            
         </VBox>
-
-        <!-- Footer Actions -->
-        <HBox spacing="12" alignment="CENTER" styleClass="footer-actions">
-            <Button fx:id="backButton" text="%protect.goBack" styleClass="secondary-button"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="processButton" text="%protect.protectNow" styleClass="primary-button" 
-                    defaultButton="true"/>
-        </HBox>
-    </VBox>
-
+        
+        <!-- RIGHT PANE: Settings Panel -->
+        <VBox styleClass="settings-pane">
+            <padding>
+                <Insets top="32" right="32" bottom="32" left="24"/>
+            </padding>
+            
+            <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="settings-scroll" VBox.vgrow="ALWAYS">
+                <VBox spacing="28">
+                    
+                    <!-- Settings Header -->
+                    <VBox spacing="8">
+                        <Label text="%lock.settings.title" styleClass="settings-title"/>
+                        <Label text="%lock.settings.subtitle" styleClass="settings-subtitle" wrapText="true"/>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Password Section -->
+                    <VBox spacing="16" styleClass="settings-section">
+                        <Label text="%lock.password.title" styleClass="section-title"/>
+                        
+                        <!-- Password Field -->
+                        <VBox spacing="6">
+                            <Label text="%lock.password.label" styleClass="field-label"/>
+                            <StackPane>
+                                <PasswordField fx:id="passwordField" promptText="%lock.password.placeholder" 
+                                               styleClass="field-input-large"/>
+                                <TextField fx:id="passwordVisibleField" promptText="%lock.password.placeholder" 
+                                           styleClass="field-input-large" visible="false" managed="false"/>
+                            </StackPane>
+                            <Label fx:id="passwordErrorLabel" styleClass="field-error-inline" 
+                                   wrapText="true" visible="false" managed="false"/>
+                        </VBox>
+                        
+                        <!-- Confirm Password Field -->
+                        <VBox spacing="6">
+                            <Label text="%lock.confirm.label" styleClass="field-label"/>
+                            <StackPane>
+                                <PasswordField fx:id="confirmPasswordField" promptText="%lock.confirm.placeholder" 
+                                               styleClass="field-input-large"/>
+                                <TextField fx:id="confirmVisibleField" promptText="%lock.confirm.placeholder" 
+                                           styleClass="field-input-large" visible="false" managed="false"/>
+                            </StackPane>
+                            <Label fx:id="confirmErrorLabel" styleClass="field-error-inline" 
+                                   wrapText="true" visible="false" managed="false"/>
+                        </VBox>
+                        
+                        <!-- Show Password Toggle -->
+                        <CheckBox fx:id="showPasswordCheckbox" text="%lock.showPassword" styleClass="custom-checkbox"/>
+                        
+                        <!-- Password Strength Indicator -->
+                        <HBox spacing="8" alignment="CENTER_LEFT">
+                            <Label text="%lock.password.strength" styleClass="field-label-small"/>
+                            <Label fx:id="passwordStrengthLabel" styleClass="password-strength-badge"/>
+                        </HBox>
+                        
+                        <!-- Password Hint -->
+                        <Label text="%lock.password.hint" styleClass="hint-text" wrapText="true"/>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Output Settings Section -->
+                    <VBox spacing="16" styleClass="settings-section">
+                        <Label text="%lock.output.title" styleClass="section-title"/>
+                        
+                        <!-- Output Folder -->
+                        <VBox spacing="6">
+                            <Label text="%lock.output.folder" styleClass="field-label"/>
+                            <HBox spacing="8">
+                                <TextField fx:id="outputFolderField" editable="false" 
+                                           promptText="%lock.output.folderPlaceholder" 
+                                           styleClass="field-input-large" HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="browseFolderButton" text="%lock.output.browse" 
+                                        styleClass="secondary-button"/>
+                            </HBox>
+                        </VBox>
+                        
+                        <!-- Single File Output Name (Shown only for single file) -->
+                        <VBox fx:id="singleFileNameSection" spacing="6" visible="false" managed="false">
+                            <Label text="%lock.output.filename" styleClass="field-label"/>
+                            <TextField fx:id="outputFilenameField" promptText="document-locked.pdf" 
+                                       styleClass="field-input-large"/>
+                            <Label text="%lock.output.filenameHint" styleClass="hint-text-small" wrapText="true"/>
+                        </VBox>
+                        
+                        <!-- Multi File Info (Shown for multiple files) -->
+                        <VBox fx:id="multiFileInfoSection" spacing="6" visible="false" managed="false">
+                            <Label text="%lock.output.multiFileInfo" styleClass="hint-text" wrapText="true"/>
+                        </VBox>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Action Buttons -->
+                    <VBox spacing="12" styleClass="action-buttons">
+                        <Button fx:id="lockPdfButton" text="%lock.action.lock" 
+                                styleClass="primary-button-large" defaultButton="true" maxWidth="Infinity"/>
+                        <Button fx:id="resetButton" text="%lock.action.reset" 
+                                styleClass="secondary-button-large" maxWidth="Infinity"/>
+                    </VBox>
+                    
+                    <!-- Status Info -->
+                    <VBox fx:id="statusInfoBox" spacing="8" styleClass="status-info-box" 
+                          visible="false" managed="false">
+                        <Label fx:id="statusInfoLabel" styleClass="status-info-text" wrapText="true"/>
+                    </VBox>
+                    
+                </VBox>
+            </ScrollPane>
+            
+        </VBox>
+        
+    </HBox>
+    
     <!-- Progress Overlay -->
-    <StackPane fx:id="progressOverlay" styleClass="progress-overlay" visible="false" managed="false">
-        <VBox alignment="CENTER" spacing="32" styleClass="progress-card">
-            <VBox alignment="CENTER" spacing="16">
-                <Label text="%protect.processing" styleClass="progress-title"/>
-                <ProgressBar fx:id="progressBar" prefWidth="400" styleClass="progress-bar" progress="-1"/>
-                <Label fx:id="progressLabel" text="%progress.processing" styleClass="progress-message"/>
+    <StackPane fx:id="progressOverlay" styleClass="progress-overlay-fullscreen" visible="false">
+        <VBox alignment="CENTER" spacing="24" styleClass="progress-dialog">
+            <Label text="%lock.progress.title" styleClass="progress-dialog-title"/>
+            <ProgressBar fx:id="progressBar" prefWidth="320" styleClass="progress-bar-large"/>
+            <Label fx:id="progressLabel" text="%lock.progress.processing" styleClass="progress-dialog-text"/>
+            <Label fx:id="progressDetailLabel" text="" styleClass="progress-dialog-detail"/>
+        </VBox>
+    </StackPane>
+    
+    <!-- Success Overlay -->
+    <StackPane fx:id="successOverlay" styleClass="result-overlay" visible="false">
+        <VBox alignment="CENTER" spacing="28" styleClass="result-dialog success-dialog">
+            <Label text="✓" styleClass="result-icon success-icon"/>
+            <VBox alignment="CENTER" spacing="12">
+                <Label text="%lock.success.title" styleClass="result-title"/>
+                <Label fx:id="successMessage" text="" styleClass="result-message" wrapText="true" textAlignment="CENTER"/>
             </VBox>
-            
-            <Button fx:id="cancelButton" text="%protect.cancel" styleClass="secondary-button"/>
-            
-            <VBox fx:id="completionPane" alignment="CENTER" spacing="20" visible="false" managed="false">
-                <Label text="✓" styleClass="success-icon"/>
-                <Label fx:id="completionMessage" text="%protect.success" 
-                       styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="400"/>
-                <HBox spacing="16" alignment="CENTER">
-                    <Button fx:id="openFolderButton" text="%protect.openFolder" styleClass="secondary-button"/>
-                    <Button fx:id="processAnotherButton" text="%protect.processAnother" styleClass="primary-button"/>
-                </HBox>
+            <VBox spacing="12" alignment="CENTER" style="-fx-max-width: 280px;">
+                <Button fx:id="openFolderButton" text="%lock.success.openFolder" 
+                        styleClass="primary-button-large" maxWidth="Infinity"/>
+                <Button fx:id="lockAnotherButton" text="%lock.success.lockAnother" 
+                        styleClass="secondary-button-large" maxWidth="Infinity"/>
             </VBox>
         </VBox>
     </StackPane>
+    
+    <!-- Error Overlay (Optional - or use inline errors) -->
+    
 </StackPane>
-</ScrollPane>
