@@ -45,12 +45,14 @@ import java.util.stream.Collectors;
  */
 public class SplitControllerRedesigned {
 
-    // LEFT PANEL: Page preview elements
+    // LEFT PANEL: File staging elements (following protect style)
+    @FXML private StackPane dropZonePane;  // Large drop zone when empty
+    @FXML private VBox pagePreviewContainer;  // Container for page thumbnails when file loaded
     @FXML private TilePane pageGridContainer;
-    @FXML private StackPane pageEmptyStatePane;
     @FXML private Label selectedFileInfoLabel;
-    @FXML private Button removePdfButton; // NEW: Remove PDF button
+    @FXML private Button removePdfButton;
     @FXML private Button deselectAllButton;
+    @FXML private Button selectFilesButton;  // Button in drop zone
     
     // Zoom control elements
     @FXML private javafx.scene.layout.HBox zoomControlsBox;
@@ -67,9 +69,6 @@ public class SplitControllerRedesigned {
     @FXML private ProgressIndicator loadingProgressIndicator;
     
     // RIGHT PANEL: Configuration elements
-    // NOTE: fileDropZone removed - no longer using right-side drag zone
-    @FXML private Button selectFileButton;
-    
     @FXML private VBox modeSection;
     @FXML private ToggleButton splitByRangeToggle;
     @FXML private ToggleButton extractPagesToggle;
@@ -156,13 +155,12 @@ public class SplitControllerRedesigned {
         
         // Bind empty-state visibility to noContent property
         // We manually update noContentProperty when state changes
-        pageEmptyStatePane.visibleProperty().bind(noContentProperty);
-        pageEmptyStatePane.managedProperty().bind(noContentProperty);
-        pageEmptyStatePane.mouseTransparentProperty().bind(noContentProperty.not());
+        dropZonePane.visibleProperty().bind(noContentProperty);
+        dropZonePane.managedProperty().bind(noContentProperty);
         
-        // Bind page grid visibility to inverse of empty state
-        pageGridContainer.visibleProperty().bind(noContentProperty.not());
-        pageGridContainer.managedProperty().bind(noContentProperty.not());
+        // Bind page preview container visibility to inverse of empty state
+        pagePreviewContainer.visibleProperty().bind(noContentProperty.not());
+        pagePreviewContainer.managedProperty().bind(noContentProperty.not());
         
         // Initialize empty state to true
         updateEmptyState();
@@ -363,11 +361,11 @@ public class SplitControllerRedesigned {
     private void refreshLabels() {
         // Update file info label if file is loaded
         if (selectedFile != null) {
-            String fileInfo = String.format(LocaleManager.getString("split.fileInfo"), 
+            String fileInfo = String.format(LocaleManager.getString("split.filesPane.fileInfo"), 
                                            selectedFile.getName(), totalPages);
             selectedFileInfoLabel.setText(fileInfo);
         } else {
-            selectedFileInfoLabel.setText(LocaleManager.getString("split.noFileSelected"));
+            selectedFileInfoLabel.setText(LocaleManager.getString("split.filesPane.emptyState"));
         }
         
         // Update load status if applicable
@@ -419,10 +417,10 @@ public class SplitControllerRedesigned {
      * This makes the entire empty-state area the primary drop target.
      */
     private void setupLeftPanelDragDrop() {
-        pageEmptyStatePane.setOnDragOver(this::handleLeftPanelDragOver);
-        pageEmptyStatePane.setOnDragDropped(this::handleLeftPanelDragDropped);
-        pageEmptyStatePane.setOnDragExited(event -> {
-            pageEmptyStatePane.getStyleClass().remove("drag-over");
+        dropZonePane.setOnDragOver(this::handleLeftPanelDragOver);
+        dropZonePane.setOnDragDropped(this::handleLeftPanelDragDropped);
+        dropZonePane.setOnDragExited(event -> {
+            dropZonePane.getStyleClass().remove("drag-over");
             event.consume();
         });
     }
@@ -434,8 +432,8 @@ public class SplitControllerRedesigned {
             File file = db.getFiles().get(0);
             if (file.getName().toLowerCase().endsWith(".pdf")) {
                 event.acceptTransferModes(TransferMode.COPY);
-                if (!pageEmptyStatePane.getStyleClass().contains("drag-over")) {
-                    pageEmptyStatePane.getStyleClass().add("drag-over");
+                if (!dropZonePane.getStyleClass().contains("drag-over")) {
+                    dropZonePane.getStyleClass().add("drag-over");
                 }
             }
         }
@@ -453,12 +451,12 @@ public class SplitControllerRedesigned {
                 success = true;
             } else {
                 // Show gentle feedback for invalid drops
-                showAlert(LocaleManager.getString("split.dropInvalidFile"), Alert.AlertType.WARNING);
+                showAlert(LocaleManager.getString("split.dropZone.invalidFile"), Alert.AlertType.WARNING);
             }
         }
         
         event.setDropCompleted(success);
-        pageEmptyStatePane.getStyleClass().remove("drag-over");
+        dropZonePane.getStyleClass().remove("drag-over");
         event.consume();
     }
     
@@ -472,7 +470,7 @@ public class SplitControllerRedesigned {
             new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
         );
         
-        File file = fileChooser.showOpenDialog(selectFileButton.getScene().getWindow());
+        File file = fileChooser.showOpenDialog(selectFilesButton.getScene().getWindow());
         if (file != null) {
             setSelectedFile(file);
         }

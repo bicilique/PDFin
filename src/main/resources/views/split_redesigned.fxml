@@ -12,91 +12,92 @@
     <!-- Main Two-Panel Layout -->
     <HBox styleClass="two-panel-layout" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
         
-        <!-- LEFT PANEL: All Page Previews -->
-        <VBox styleClass="left-panel" HBox.hgrow="ALWAYS" minWidth="400" prefWidth="500">
-            <!-- Header -->
-            <VBox spacing="8" styleClass="panel-header">
-                <padding>
-                    <Insets top="24" right="24" bottom="16" left="24"/>
-                </padding>
-                <Label text="%split.pagePreview" styleClass="panel-title"/>
-                <HBox spacing="12" alignment="CENTER_LEFT">
-                    <Label fx:id="selectedFileInfoLabel" text="%split.noFileSelected" 
-                           styleClass="instruction-text" wrapText="true" HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="removePdfButton" text="🗑️" 
-                           styleClass="icon-button" onAction="#handleRemovePdf" 
-                           visible="false" managed="false">
-                        <tooltip>
-                            <Tooltip text="%split.removePdfTooltip"/>
-                        </tooltip>
-                    </Button>
-                    <Button fx:id="deselectAllButton" text="Deselect All" 
-                           styleClass="secondary-button" onAction="#handleDeselectAll" 
+        <!-- LEFT PANE: File Staging Area (Following Protect Style) -->
+        <VBox styleClass="files-pane" HBox.hgrow="ALWAYS">
+            <padding>
+                <Insets top="32" right="24" bottom="32" left="32"/>
+            </padding>
+            
+            <!-- Files Pane Header -->
+            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="files-header">
+                <Label text="%split.filesPane.title" styleClass="pane-title"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="removePdfButton" text="%split.removeFile" styleClass="text-button" 
+                        onAction="#handleRemovePdf" visible="false" managed="false"/>
+            </HBox>
+            
+            <VBox.margin>
+                <Insets bottom="20"/>
+            </VBox.margin>
+            
+            <!-- Drop Zone (Shown when empty) -->
+            <StackPane fx:id="dropZonePane" styleClass="drop-zone-large" VBox.vgrow="ALWAYS">
+                <VBox alignment="CENTER" spacing="20">
+                    <Label text="📄" styleClass="drop-zone-icon-large"/>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="%split.dropZone.title" styleClass="drop-zone-title"/>
+                        <Label text="%split.dropZone.subtitle" styleClass="drop-zone-subtitle"/>
+                    </VBox>
+                    <Button fx:id="selectFilesButton" text="%split.selectFiles" styleClass="primary-button" 
+                            onAction="#handleSelectFile"/>
+                    <Label text="%split.dropZone.formats" styleClass="drop-zone-hint"/>
+                </VBox>
+            </StackPane>
+            
+            <!-- Page Thumbnails View (Shown when file selected) -->
+            <VBox fx:id="pagePreviewContainer" visible="false" managed="false" VBox.vgrow="ALWAYS" spacing="12">
+                
+                <!-- File Info Bar -->
+                <HBox spacing="12" alignment="CENTER_LEFT" styleClass="file-info-bar">
+                    <Label fx:id="selectedFileInfoLabel" text="" styleClass="file-info-label" HBox.hgrow="ALWAYS"/>
+                    
+                    <!-- Zoom Controls -->
+                    <HBox spacing="8" alignment="CENTER_LEFT" fx:id="zoomControlsBox" styleClass="zoom-controls">
+                        <Label text="%split.zoom.label" styleClass="field-label-small"/>
+                        <Button fx:id="zoomOutButton" text="−" styleClass="zoom-button" 
+                               onAction="#handleZoomOut" minWidth="28" prefWidth="28"/>
+                        <Slider fx:id="zoomSlider" min="1.0" max="2.0" value="1.0" 
+                               blockIncrement="0.5" majorTickUnit="0.5" minorTickCount="0" 
+                               showTickMarks="false" snapToTicks="true" prefWidth="120"/>
+                        <Button fx:id="zoomInButton" text="+" styleClass="zoom-button" 
+                               onAction="#handleZoomIn" minWidth="28" prefWidth="28"/>
+                        <Label fx:id="zoomPercentLabel" text="100%" styleClass="field-label-small" 
+                              minWidth="45" alignment="CENTER_RIGHT"/>
+                    </HBox>
+                    
+                    <Button fx:id="deselectAllButton" text="%split.clearAll" 
+                           styleClass="secondary-button-small" onAction="#handleDeselectAll" 
                            visible="false" managed="false"/>
                 </HBox>
                 
-                <!-- Zoom Controls -->
-                <HBox spacing="12" alignment="CENTER_LEFT" fx:id="zoomControlsBox" 
-                      visible="false" managed="false" styleClass="zoom-controls">
-                    <Label text="%split.zoom.label" styleClass="field-label"/>
-                    <Button fx:id="zoomOutButton" text="−" styleClass="zoom-button" 
-                           onAction="#handleZoomOut" minWidth="32" prefWidth="32"/>
-                    <Slider fx:id="zoomSlider" min="1.0" max="2.0" value="1.0" 
-                           blockIncrement="0.5" majorTickUnit="0.5" minorTickCount="0" 
-                           showTickMarks="true" snapToTicks="true" prefWidth="150"/>
-                    <Button fx:id="zoomInButton" text="+" styleClass="zoom-button" 
-                           onAction="#handleZoomIn" minWidth="32" prefWidth="32"/>
-                    <Label fx:id="zoomPercentLabel" text="%split.zoom.percent" styleClass="field-label" 
-                          minWidth="50" alignment="CENTER_RIGHT"/>
-                </HBox>
+                <!-- Scrollable Page Grid -->
+                <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="files-scroll" VBox.vgrow="ALWAYS">
+                    <VBox spacing="12">
+                        <!-- Page Thumbnails Grid Container -->
+                        <TilePane fx:id="pageGridContainer" hgap="12" vgap="12" 
+                                 prefColumns="3" prefTileWidth="150" prefTileHeight="200" 
+                                 alignment="TOP_LEFT" styleClass="page-grid">
+                            <!-- Page thumbnail cards will be added here dynamically -->
+                        </TilePane>
+                        
+                        <!-- Progressive Loading Controls -->
+                        <HBox spacing="12" alignment="CENTER" fx:id="loadControlsBox" 
+                             visible="false" managed="false" styleClass="load-controls">
+                            <Label fx:id="pageLoadStatusLabel" text="" 
+                                  styleClass="field-label" HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="loadMoreButton" text="%split.loadMore" 
+                                   styleClass="secondary-button" onAction="#handleLoadMore"/>
+                            <Button fx:id="loadAllButton" text="%split.loadAll" 
+                                   styleClass="secondary-button" onAction="#handleLoadAll"/>
+                            <ProgressIndicator fx:id="loadingProgressIndicator" 
+                                             prefWidth="24" prefHeight="24" 
+                                             visible="false" managed="false"/>
+                        </HBox>
+                    </VBox>
+                </ScrollPane>
+                
             </VBox>
             
-            <!-- Scrollable Page Grid -->
-            <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="content-scroll" 
-                       VBox.vgrow="ALWAYS"
-                       style="-fx-background-color: transparent; -fx-border-width: 0;">
-                <VBox spacing="16">
-                    <padding>
-                        <Insets top="8" right="24" bottom="24" left="24"/>
-                    </padding>
-                    
-                    <!-- Page Thumbnails Grid Container -->
-                    <TilePane fx:id="pageGridContainer" hgap="12" vgap="12" 
-                             prefColumns="3" prefTileWidth="150" prefTileHeight="200" visible="false" managed="false" 
-                             alignment="TOP_LEFT">
-                        <!-- Page thumbnail cards will be added here dynamically -->
-                    </TilePane>
-                    
-                    <!-- Progressive Loading Controls - MOVED TO BOTTOM -->
-                    <HBox spacing="12" alignment="CENTER" fx:id="loadControlsBox" 
-                         visible="false" managed="false" styleClass="load-controls"
-                         style="-fx-padding: 16 0 0 0;">
-                        <Label fx:id="pageLoadStatusLabel" text="%split.showingCount" 
-                              styleClass="field-label" HBox.hgrow="ALWAYS"/>
-                        <Button fx:id="loadMoreButton" text="%split.loadMore" 
-                               styleClass="secondary-button" onAction="#handleLoadMore" 
-                               minWidth="100"/>
-                        <Button fx:id="loadAllButton" text="%split.loadAll" 
-                               styleClass="secondary-button" onAction="#handleLoadAll" 
-                               minWidth="100"/>
-                        <ProgressIndicator fx:id="loadingProgressIndicator" 
-                                         prefWidth="24" prefHeight="24" 
-                                         visible="false" managed="false"/>
-                    </HBox>
-                    
-                    <!-- Empty State (shown when no file selected) - NOW A DROP ZONE -->
-                    <StackPane fx:id="pageEmptyStatePane" minHeight="400" visible="true" managed="true"
-                               styleClass="page-drop-zone-empty">
-                        <VBox alignment="CENTER" spacing="16">
-                            <Label text="📄" style="-fx-font-size: 64px; -fx-opacity: 0.5;"/>
-                            <Label text="%split.dropPdfHere" styleClass="empty-state" 
-                                  style="-fx-font-size: 18px; -fx-font-weight: 600;"/>
-                            <Label text="%split.selectFileHint" styleClass="hint-label" 
-                                  wrapText="true" textAlignment="CENTER" maxWidth="300"/>
-                        </VBox>
-                    </StackPane>
-                </VBox>
-            </ScrollPane>
         </VBox>
         
         <!-- RIGHT PANEL: Configuration & Primary CTA -->
@@ -112,24 +113,15 @@
                         
                         <!-- Title -->
                         <VBox spacing="4">
-                            <Label text="%split.title" styleClass="panel-title"/>
-                            <Label text="%split.subtitle" styleClass="panel-subtitle" wrapText="true"/>
+                            <Label text="%split.title" styleClass="settings-title"/>
+                            <Label text="%split.subtitle" styleClass="settings-subtitle" wrapText="true"/>
                         </VBox>
                         
-                        <Separator/>
+                        <Separator styleClass="settings-separator"/>
                         
-                        <!-- Step 1: File Selection - BUTTON ONLY (no drag zone) -->
-                        <VBox spacing="12">
-                            <Label text="%split.step1" styleClass="section-label"/>
-                            <Button fx:id="selectFileButton" text="%split.selectFileButton" 
-                                   styleClass="secondary-button" onAction="#handleSelectFile" maxWidth="Infinity"/>
-                        </VBox>
-                        
-                        <Separator/>
-                        
-                        <!-- Step 2: Mode Selector -->
+                        <!-- Step 1: Mode Selector (File selection now in left panel) -->
                         <VBox spacing="12" fx:id="modeSection" disable="true">
-                            <Label text="%split.step2" styleClass="section-label"/>
+                            <Label text="%split.step2" styleClass="section-title"/>
                             
                             <!-- Segmented Toggle for Split Mode -->
                             <HBox spacing="0" styleClass="segmented-control">

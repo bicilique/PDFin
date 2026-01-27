@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.pdftoolkit.controllers.CompressControllerRedesigned"
+           styleClass="content-root">
+
+    <!-- Main Two-Panel Layout -->
+    <HBox styleClass="two-panel-layout" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+        
+        <!-- LEFT PANE: File Staging Area (Following Protect Style) -->
+        <VBox styleClass="files-pane" HBox.hgrow="ALWAYS">
+            <padding>
+                <Insets top="32" right="24" bottom="32" left="32"/>
+            </padding>
+            
+            <!-- Files Pane Header -->
+            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="files-header">
+                <Label text="%compress.filesPane.title" styleClass="pane-title"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="clearAllButton" text="%compress.clearAll" styleClass="text-button" 
+                        visible="false" managed="false"/>
+            </HBox>
+            
+            <VBox.margin>
+                <Insets bottom="20"/>
+            </VBox.margin>
+            
+            <!-- Drop Zone (Shown when empty) -->
+            <StackPane fx:id="emptyStatePane" styleClass="drop-zone-large" VBox.vgrow="ALWAYS">
+                <VBox alignment="CENTER" spacing="20">
+                    <Label text="📦" styleClass="drop-zone-icon-large"/>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="%compress.dropZone.title" styleClass="drop-zone-title"/>
+                        <Label text="%compress.dropZone.subtitle" styleClass="drop-zone-subtitle"/>
+                    </VBox>
+                    <Button fx:id="addFilesButton" text="%compress.selectFiles" styleClass="primary-button"/>
+                    <Label text="%compress.dropZone.formats" styleClass="drop-zone-hint"/>
+                </VBox>
+            </StackPane>
+            
+            <!-- Files View (Shown when files selected) -->
+            <VBox fx:id="fileListContainer" spacing="12" visible="false" managed="false" VBox.vgrow="ALWAYS">
+                
+                <!-- File List Header with Add More button -->
+                <HBox alignment="CENTER_LEFT" spacing="12" styleClass="file-list-header">
+                    <Label fx:id="filesCountLabel" text="" styleClass="files-count-label"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button text="%compress.addMoreFiles" styleClass="secondary-button" 
+                            onAction="#handleAddFiles"/>
+                </HBox>
+                
+                <!-- Scrollable File List -->
+                <ScrollPane fitToWidth="true" fitToHeight="true" 
+                           styleClass="files-scroll" VBox.vgrow="ALWAYS">
+                    <ListView fx:id="fileListView" styleClass="pdf-list-view"/>
+                </ScrollPane>
+            </VBox>
+            
+        </VBox>
+        
+        <!-- RIGHT PANE: Settings Panel (Following Protect Style) -->
+        <VBox styleClass="settings-pane">
+            <padding>
+                <Insets top="32" right="32" bottom="32" left="24"/>
+            </padding>
+            
+            <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="settings-scroll" VBox.vgrow="ALWAYS">
+                <VBox spacing="28">
+                    
+                    <!-- Settings Header -->
+                    <VBox spacing="8">
+                        <Label text="%compress.settings.title" styleClass="settings-title"/>
+                        <Label text="%compress.settings.subtitle" styleClass="settings-subtitle" wrapText="true"/>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Compression Level Section -->
+                    <VBox spacing="16" styleClass="settings-section">
+                        <Label text="%compress.level.title" styleClass="section-title"/>
+                        
+                        <!-- Radio Card Options -->
+                        <VBox spacing="10">
+                            
+                            <!-- Extreme Compression Card -->
+                            <HBox fx:id="extremeCard" styleClass="radio-card-container" 
+                                  alignment="CENTER_LEFT" spacing="12">
+                                <RadioButton fx:id="extremeRadio" styleClass="compression-radio"/>
+                                <VBox spacing="2" HBox.hgrow="ALWAYS" styleClass="radio-card-content">
+                                    <Label text="%compress.level.extreme" styleClass="radio-card-title"/>
+                                    <Label text="%compress.level.extreme.desc" styleClass="radio-card-description"/>
+                                </VBox>
+                            </HBox>
+                            
+                            <!-- Recommended Compression Card -->
+                            <HBox fx:id="recommendedCard" styleClass="radio-card-container" 
+                                  alignment="CENTER_LEFT" spacing="12">
+                                <RadioButton fx:id="recommendedRadio" selected="true" styleClass="compression-radio"/>
+                                <VBox spacing="2" HBox.hgrow="ALWAYS" styleClass="radio-card-content">
+                                    <Label text="%compress.level.recommended" styleClass="radio-card-title"/>
+                                    <Label text="%compress.level.recommended.desc" styleClass="radio-card-description"/>
+                                </VBox>
+                            </HBox>
+                            
+                            <!-- Low Compression Card -->
+                            <HBox fx:id="lowCard" styleClass="radio-card-container" 
+                                  alignment="CENTER_LEFT" spacing="12">
+                                <RadioButton fx:id="lowRadio" styleClass="compression-radio"/>
+                                <VBox spacing="2" HBox.hgrow="ALWAYS" styleClass="radio-card-content">
+                                    <Label text="%compress.level.low" styleClass="radio-card-title"/>
+                                    <Label text="%compress.level.low.desc" styleClass="radio-card-description"/>
+                                </VBox>
+                            </HBox>
+                        </VBox>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Output Settings Section -->
+                    <VBox spacing="16" styleClass="settings-section">
+                        <Label text="%compress.output.title" styleClass="section-title"/>
+                        
+                        <!-- Output Folder -->
+                        <VBox spacing="6">
+                            <Label text="%compress.output.folder" styleClass="field-label"/>
+                            <HBox spacing="8">
+                                <TextField fx:id="outputFolderField" HBox.hgrow="ALWAYS" 
+                                          editable="false" promptText="%compress.output.folderPlaceholder"
+                                          styleClass="field-input-large"/>
+                                <Button fx:id="browseOutputButton" text="%compress.output.browse" 
+                                       styleClass="secondary-button"/>
+                            </HBox>
+                        </VBox>
+                        
+                        <!-- Keep Best Quality Checkbox -->
+                        <CheckBox fx:id="keepBestQualityCheckbox" 
+                                 text="%compress.keepQuality" 
+                                 styleClass="custom-checkbox"/>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Action Buttons -->
+                    <VBox spacing="12" styleClass="action-buttons">
+                        <Button fx:id="compressButton" text="%compress.action.compress" 
+                                styleClass="primary-button-large" defaultButton="true" maxWidth="Infinity"/>
+                    </VBox>
+                    
+                </VBox>
+            </ScrollPane>
+            
+        </VBox>
+    </HBox>
+
+    
+    <!-- Progress Overlay -->
+    <StackPane fx:id="progressOverlay" styleClass="progress-overlay-fullscreen" visible="false">
+        <VBox alignment="CENTER" spacing="24" styleClass="progress-dialog">
+            <Label text="%compress.progress.title" styleClass="progress-dialog-title"/>
+            <ProgressBar fx:id="progressBar" prefWidth="320" styleClass="progress-bar-large"/>
+            <Label fx:id="progressMessage" text="%compress.progress.processing" styleClass="progress-dialog-text"/>
+        </VBox>
+    </StackPane>
+    
+    <!-- Success Overlay -->
+    <StackPane fx:id="successOverlay" styleClass="result-overlay" visible="false">
+        <VBox alignment="CENTER" spacing="28" styleClass="result-dialog success-dialog">
+            <Label text="✓" styleClass="result-icon success-icon"/>
+            <VBox alignment="CENTER" spacing="12">
+                <Label text="%compress.success.title" styleClass="result-title"/>
+                <Label fx:id="successMessage" text="" styleClass="result-message" wrapText="true" textAlignment="CENTER"/>
+            </VBox>
+            <VBox spacing="12" alignment="CENTER" style="-fx-max-width: 280px;">
+                <Button fx:id="openFolderButton" text="%compress.success.openFolder" 
+                        styleClass="primary-button-large" maxWidth="Infinity"/>
+                <Button fx:id="processAnotherButton" text="%compress.success.compressMore" 
+                        styleClass="secondary-button-large" maxWidth="Infinity"/>
+            </VBox>
+        </VBox>
+    </StackPane>
+
+</StackPane>
