@@ -155,23 +155,22 @@
     
     <!-- Progress Overlay -->
     <StackPane fx:id="progressOverlay" styleClass="progress-overlay-fullscreen" visible="false">
-        <VBox alignment="CENTER" spacing="24" styleClass="progress-dialog">
+        <VBox alignment="CENTER" spacing="16" styleClass="progress-dialog">
             <Label text="%merge.progress.title" styleClass="progress-dialog-title"/>
-            <ProgressBar fx:id="progressBar" prefWidth="320" styleClass="progress-bar-large"/>
+            <ProgressBar fx:id="progressBar" prefWidth="280" styleClass="progress-bar-large"/>
             <Label fx:id="progressLabel" text="%merge.progress.processing" styleClass="progress-dialog-text"/>
-            <Label fx:id="progressDetailLabel" text="" styleClass="progress-dialog-detail"/>
         </VBox>
     </StackPane>
     
     <!-- Success Overlay -->
     <StackPane fx:id="successOverlay" styleClass="result-overlay" visible="false">
-        <VBox alignment="CENTER" spacing="28" styleClass="result-dialog success-dialog">
+        <VBox alignment="CENTER" spacing="20" styleClass="result-dialog success-dialog">
             <Label text="✓" styleClass="result-icon success-icon"/>
-            <VBox alignment="CENTER" spacing="12">
+            <VBox alignment="CENTER" spacing="8">
                 <Label text="%merge.success.title" styleClass="result-title"/>
                 <Label fx:id="successMessage" text="" styleClass="result-message" wrapText="true" textAlignment="CENTER"/>
             </VBox>
-            <VBox spacing="12" alignment="CENTER" style="-fx-max-width: 280px;">
+            <VBox spacing="10" alignment="CENTER" style="-fx-max-width: 320px;">
                 <Button fx:id="openFolderButton" text="%merge.success.openFolder" 
                         styleClass="primary-button-large" maxWidth="Infinity" onAction="#handleOpenFolder"/>
                 <Button fx:id="mergeAnotherButton" text="%merge.success.mergeAnother" 

@@ -404,7 +404,78 @@ public class MergeControllerRedesignedNew {
         topRow.getChildren().addAll(thumbnailContainer, infoBox, actions);
         card.getChildren().add(topRow);
         
+        // Setup drag-and-drop for reordering
+        setupCardDragAndDrop(card, index);
+        
         return card;
+    }
+    
+    /**
+     * Setup drag-and-drop handlers for a file card to enable reordering.
+     */
+    private void setupCardDragAndDrop(VBox card, int cardIndex) {
+        // Make card draggable
+        card.setOnDragDetected(event -> {
+            if (selectedFiles.size() <= 1) return; // No point dragging single item
+            
+            Dragboard db = card.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.putString(String.valueOf(cardIndex));
+            db.setContent(content);
+            
+            draggedIndex = cardIndex;
+            card.setOpacity(0.5);
+            event.consume();
+        });
+        
+        card.setOnDragOver(event -> {
+            if (event.getGestureSource() != card && event.getDragboard().hasString()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+            event.consume();
+        });
+        
+        card.setOnDragEntered(event -> {
+            if (event.getGestureSource() != card && event.getDragboard().hasString()) {
+                card.setStyle("-fx-border-color: #0969da; -fx-border-width: 2px;");
+            }
+            event.consume();
+        });
+        
+        card.setOnDragExited(event -> {
+            card.setStyle("");
+            event.consume();
+        });
+        
+        card.setOnDragDropped(event -> {
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            
+            if (db.hasString() && draggedIndex >= 0 && draggedIndex != cardIndex) {
+                // Reorder items
+                PdfItem draggedItem = selectedFiles.remove(draggedIndex);
+                
+                // Adjust target index if needed
+                int targetIndex = cardIndex;
+                if (draggedIndex < cardIndex) {
+                    targetIndex--;
+                }
+                
+                selectedFiles.add(targetIndex, draggedItem);
+                renderFileCards();
+                success = true;
+            }
+            
+            event.setDropCompleted(success);
+            event.consume();
+        });
+        
+        card.setOnDragDone(event -> {
+            card.setOpacity(1.0);
+            card.setStyle("");
+            draggedIndex = -1;
+            event.consume();
+        });
     }
     
     /**
@@ -456,7 +527,13 @@ public class MergeControllerRedesignedNew {
         selectedFiles.add(item);
         
         // Load metadata asynchronously
-        previewService.loadMetadataAsync(item);
+        previewService.loadMetadataAsync(item).thenRun(() -> {
+            // Re-render file cards and update summary when thumbnail is loaded
+            Platform.runLater(() -> {
+                renderFileCards();
+                updateSummary();
+            });
+        });
     }
     
     /**
@@ -589,12 +666,49 @@ public class MergeControllerRedesignedNew {
             filename += ".pdf";
         }
         
+        final File outputDir = new File(outputPath);
+        File outputFile = new File(outputDir, filename);
+        
+        // Check if file exists and handle duplicate
+        if (outputFile.exists()) {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle(LocaleManager.getString("merge.warning.fileExists"));
+            alert.setHeaderText(LocaleManager.getString("merge.warning.fileExistsHeader"));
+            alert.setContentText(String.format(
+                LocaleManager.getString("merge.warning.fileExistsMessage"), 
+                filename
+            ));
+            
+            ButtonType overwriteButton = new ButtonType(
+                LocaleManager.getString("merge.warning.overwrite"),
+                ButtonBar.ButtonData.OK_DONE
+            );
+            ButtonType renameButton = new ButtonType(
+                LocaleManager.getString("merge.warning.rename"),
+                ButtonBar.ButtonData.OTHER
+            );
+            ButtonType cancelButton = new ButtonType(
+                LocaleManager.getString("common.cancel"),
+                ButtonBar.ButtonData.CANCEL_CLOSE
+            );
+            
+            alert.getButtonTypes().setAll(renameButton, overwriteButton, cancelButton);
+            
+            var result = alert.showAndWait();
+            if (result.isEmpty() || result.get() == cancelButton) {
+                return; // User cancelled
+            } else if (result.get() == renameButton) {
+                // Auto-rename with incrementing number
+                outputFile = getUniqueOutputFile(outputDir, filename);
+                outputFilenameField.setText(outputFile.getName());
+            }
+            // If overwrite, continue with existing outputFile
+        }
+        
         // Show progress overlay
         showProgressOverlay();
         
-        final String finalFilename = filename;
-        final File outputDir = new File(outputPath);
-        final File outputFile = new File(outputDir, finalFilename);
+        final File finalOutputFile = outputFile;
         final List<File> files = selectedFiles.stream()
             .map(item -> item.getPath().toFile())
             .collect(Collectors.toList());
@@ -625,14 +739,14 @@ public class MergeControllerRedesignedNew {
                 
                 // Perform merge
                 updateMessage(LocaleManager.getString("merge.progress.merging"));
-                mergeService.mergePdfs(files, outputFile);
+                mergeService.mergePdfs(files, finalOutputFile);
                 
                 updateMessage(LocaleManager.getString("merge.progress.writing"));
                 updateProgress(files.size() + 1, files.size() + 1);
                 Thread.sleep(200);
                 
                 updateMessage(LocaleManager.getString("merge.progress.complete"));
-                return outputFile;
+                return finalOutputFile;
             }
         };
         
@@ -693,6 +807,28 @@ public class MergeControllerRedesignedNew {
         hideSuccessOverlay();
         selectedFiles.clear();
         outputFilenameField.setText("merged.pdf");
+    }
+    
+    /**
+     * Show progress overlay.
+    /**
+     * Get a unique output file by appending numbers if file exists.
+     * Example: merged.pdf -> merged_1.pdf -> merged_2.pdf
+     */
+    private File getUniqueOutputFile(File directory, String originalFilename) {
+        String baseName = originalFilename.substring(0, originalFilename.lastIndexOf('.'));
+        String extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
+        
+        int counter = 1;
+        File file = new File(directory, originalFilename);
+        
+        while (file.exists()) {
+            String newFilename = baseName + "_" + counter + extension;
+            file = new File(directory, newFilename);
+            counter++;
+        }
+        
+        return file;
     }
     
     /**

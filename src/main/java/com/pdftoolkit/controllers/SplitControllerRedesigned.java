@@ -87,6 +87,11 @@ public class SplitControllerRedesigned {
     @FXML private TextField extractPagesField;
     @FXML private Label extractValidationLabel;
     
+    // Fixed Interval section elements
+    @FXML private VBox fixedIntervalSection;
+    @FXML private Spinner<Integer> pagesPerFileSpinner;
+    @FXML private Label fixedIntervalValidationLabel;
+    
     @FXML private VBox outputSection;
     @FXML private TextField outputFolderField;
     @FXML private Label outputInfoLabel;
@@ -211,9 +216,34 @@ public class SplitControllerRedesigned {
         fixedRangesToggle.setToggleGroup(rangeTypeGroup);
         customRangesToggle.setSelected(true);
         
+        // Range type change listener to toggle between custom ranges and fixed interval
+        rangeTypeGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == customRangesToggle) {
+                // Show custom range editor, hide fixed interval
+                rangeEditorSection.setVisible(true);
+                rangeEditorSection.setManaged(true);
+                fixedIntervalSection.setVisible(false);
+                fixedIntervalSection.setManaged(false);
+                if (selectedFile != null) {
+                    rangeEditorSection.setDisable(selectedRangeCard == null);
+                }
+            } else if (newToggle == fixedRangesToggle) {
+                // Show fixed interval, hide custom range editor
+                rangeEditorSection.setVisible(false);
+                rangeEditorSection.setManaged(false);
+                fixedIntervalSection.setVisible(true);
+                fixedIntervalSection.setManaged(true);
+                if (selectedFile != null) {
+                    fixedIntervalSection.setDisable(false);
+                }
+            }
+            updateUI();
+        });
+        
         // Setup spinners (will be configured when file is loaded)
         fromPageSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1, 1));
         toPageSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1, 1));
+        pagesPerFileSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 100, 5));
         
         // Spinner listeners for validation and updating current range
         fromPageSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
@@ -743,8 +773,19 @@ public class SplitControllerRedesigned {
                 extractValidationLabel.setManaged(true);
                 return false;
             }
+        } else if (fixedRangesToggle.isSelected()) {
+            // Fixed Interval mode: validate pages per file
+            int pagesPerFile = pagesPerFileSpinner.getValue();
+            if (pagesPerFile < 1 || pagesPerFile > totalPages) {
+                fixedIntervalValidationLabel.setText(LocaleManager.getString("validation.invalidInterval"));
+                fixedIntervalValidationLabel.setVisible(true);
+                fixedIntervalValidationLabel.setManaged(true);
+                return false;
+            }
+            fixedIntervalValidationLabel.setVisible(false);
+            fixedIntervalValidationLabel.setManaged(false);
         } else {
-            // Split by Range mode: validate ranges
+            // Split by Range mode (custom ranges): validate ranges
             if (rangeCards.isEmpty()) return false;
         }
         
@@ -788,9 +829,12 @@ public class SplitControllerRedesigned {
         
         // Check which mode is selected
         boolean isExtractMode = extractPagesToggle.isSelected();
+        boolean isFixedRangeMode = fixedRangesToggle.isSelected();
         
         if (isExtractMode) {
             handleExtractPages(outputFolder);
+        } else if (isFixedRangeMode) {
+            handleFixedIntervalSplit(outputFolder);
         } else {
             handleSplitByRanges(outputFolder);
         }
@@ -837,6 +881,61 @@ public class SplitControllerRedesigned {
                 
                 updateMessage("Split complete! Created " + outputFiles.size() + " files.");
                 updateProgress(pageRanges.size() + 2, pageRanges.size() + 2);
+                
+                return outputFolder;
+            }
+        };
+        
+        executeTask();
+    }
+    
+    private void handleFixedIntervalSplit(File outputFolder) {
+        int pagesPerFile = pagesPerFileSpinner.getValue();
+        final String baseFileName = selectedFile.getName().replace(".pdf", "");
+        
+        currentTask = new Task<File>() {
+            @Override
+            protected File call() throws Exception {
+                updateMessage("Calculating split intervals...");
+                updateProgress(0, totalPages + 2);
+                Thread.sleep(300);
+                
+                if (isCancelled()) {
+                    return null;
+                }
+                
+                // Calculate how many files we'll create
+                int fileCount = (int) Math.ceil((double) totalPages / pagesPerFile);
+                
+                updateMessage("Splitting into " + fileCount + " files...");
+                updateProgress(1, fileCount + 2);
+                Thread.sleep(200);
+                
+                // Build page ranges for fixed intervals
+                List<PdfSplitService.PageRange> pageRanges = new java.util.ArrayList<>();
+                for (int i = 0; i < totalPages; i += pagesPerFile) {
+                    int fromPage = i + 1;
+                    int toPage = Math.min(i + pagesPerFile, totalPages);
+                    pageRanges.add(new PdfSplitService.PageRange(fromPage, toPage));
+                }
+                
+                // Perform actual split using PdfSplitService
+                List<File> outputFiles = splitService.splitPdfByRanges(
+                    selectedFile, pageRanges, outputFolder, baseFileName
+                );
+                
+                // Update progress for each file
+                for (int i = 0; i < outputFiles.size(); i++) {
+                    if (isCancelled()) {
+                        return null;
+                    }
+                    updateMessage(String.format("Created file %d of %d", i + 1, outputFiles.size()));
+                    updateProgress(i + 2, fileCount + 2);
+                    Thread.sleep(200);
+                }
+                
+                updateMessage("Split complete! Created " + outputFiles.size() + " files.");
+                updateProgress(fileCount + 2, fileCount + 2);
                 
                 return outputFolder;
             }

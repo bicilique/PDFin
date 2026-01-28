@@ -178,6 +178,23 @@
                                   visible="false" wrapText="true" managed="false"/>
                         </VBox>
                         
+                        <!-- Fixed Interval Section (for Fixed Ranges mode) -->
+                        <VBox spacing="12" fx:id="fixedIntervalSection" disable="true" visible="false" managed="false">
+                            <Label text="%split.fixedInterval" styleClass="section-label"/>
+                            
+                            <VBox spacing="8">
+                                <Label text="%split.pagesPerFile" styleClass="field-label"/>
+                                <Spinner fx:id="pagesPerFileSpinner" editable="true" 
+                                        styleClass="range-spinner" maxWidth="200" 
+                                        prefWidth="200"/>
+                                <Label text="%split.fixedIntervalHint" styleClass="hint-label" wrapText="true"/>
+                            </VBox>
+                            
+                            <!-- Fixed Interval Validation message -->
+                            <Label fx:id="fixedIntervalValidationLabel" styleClass="validation-error" 
+                                  visible="false" wrapText="true" managed="false"/>
+                        </VBox>
+                        
                         <!-- Extract Pages Section (for Extract mode) -->
                         <VBox spacing="12" fx:id="extractPagesSection" disable="true" visible="false" managed="false">
                             <Label text="%split.extractPagesSpec" styleClass="section-label"/>

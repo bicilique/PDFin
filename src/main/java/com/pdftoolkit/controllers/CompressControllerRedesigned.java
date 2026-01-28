@@ -660,7 +660,7 @@ public class CompressControllerRedesigned {
      * Show progress overlay.
      */
     private void showProgressOverlay() {
-        progressBar.setProgress(0);
+        // Don't set progress manually - it's bound to task
         progressMessage.setText(bundle.getString("compress.progress.processing"));
         
         progressOverlay.setVisible(true);

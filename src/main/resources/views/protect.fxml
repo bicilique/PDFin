@@ -162,9 +162,9 @@
                     <!-- Action Buttons -->
                     <VBox spacing="12" styleClass="action-buttons">
                         <Button fx:id="lockPdfButton" text="%lock.action.lock" 
-                                styleClass="primary-button-large" defaultButton="true" maxWidth="Infinity"/>
+                                onAction="#lockPdf" styleClass="primary-button-large" defaultButton="true" maxWidth="Infinity"/>
                         <Button fx:id="resetButton" text="%lock.action.reset" 
-                                styleClass="secondary-button-large" maxWidth="Infinity"/>
+                                onAction="#resetForm" styleClass="secondary-button-large" maxWidth="Infinity"/>
                     </VBox>
                     
                     <!-- Status Info -->
