@@ -1657,41 +1657,23 @@ public class SplitControllerRedesigned {
     }
     
     /**
-     * TASK 2: Setup drag-to-select functionality for a page card.
-     * Allows users to click and drag across pages to select/deselect multiple pages.
+     * Setup click-to-select functionality for a page card.
+     * Simple single-click toggles selection state.
      */
     private void setupDragSelection(PageThumbnailCard card) {
-        // On mouse press: immediately toggle selection for single click
-        card.setOnMousePressed(event -> {
-            if (event.isPrimaryButtonDown()) {
-                isDragging = false; // Start as not dragging
-                // Determine mode based on current state
-                dragSelectionMode = !card.isSelected();
-                // Immediately apply selection for responsive single-click
-                card.setSelected(dragSelectionMode);
-                event.consume();
-            }
-        });
-        
-        // On drag detected: mark as dragging and start full drag
-        card.setOnDragDetected(event -> {
-            isDragging = true;
-            card.startFullDrag();
-            event.consume();
-        });
-        
-        // On mouse drag entered: apply selection mode (only if dragging)
-        card.setOnMouseDragEntered(event -> {
-            if (isDragging) {
-                card.setSelected(dragSelectionMode);
-                event.consume();
-            }
-        });
-        
-        // On mouse release: end drag
-        card.setOnMouseReleased(event -> {
+        // Simple click handler - toggle selection on click
+        card.setOnMouseClicked(event -> {
             if (event.getButton().equals(javafx.scene.input.MouseButton.PRIMARY)) {
-                isDragging = false;
+                // Toggle selection state
+                card.setSelected(!card.isSelected());
+                
+                // If in Extract mode, clear the text field when user clicks on page preview
+                if (extractPagesToggle.isSelected() && card.isSelected()) {
+                    if (!extractPagesField.getText().isEmpty()) {
+                        Platform.runLater(() -> extractPagesField.clear());
+                    }
+                }
+                
                 event.consume();
             }
         });
