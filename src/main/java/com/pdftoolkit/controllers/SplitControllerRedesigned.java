@@ -149,6 +149,10 @@ public class SplitControllerRedesigned {
     private final BooleanProperty isLoadingProperty = new SimpleBooleanProperty(false);
     private final IntegerProperty selectedPagesCountProperty = new SimpleIntegerProperty(0);
     
+    // TASK 2: Drag-to-select state
+    private boolean isDragging = false;
+    private boolean dragSelectionMode = true; // true = select, false = deselect
+    
     // State persistence
     private final AppState.SplitToolState toolState = AppState.getInstance().getSplitToolState();
     
@@ -382,7 +386,14 @@ public class SplitControllerRedesigned {
                 int pagesPerFile = pagesPerFileSpinner.getValue() != null ? pagesPerFileSpinner.getValue() : 0;
                 return pagesPerFile > 0 && pagesPerFile <= totalPages;
             } else {
-                // Custom ranges mode: validate range in spinners
+                // Custom ranges mode: 
+                // TASK 1: If pages are selected, use them (page selection takes priority)
+                // Otherwise, validate range in spinners
+                if (selectedPagesCountProperty.get() > 0) {
+                    return true; // Has page selection
+                }
+                
+                // Validate range in spinners
                 Integer from = fromPageSpinner.getValue();
                 Integer to = toPageSpinner.getValue();
                 
@@ -698,6 +709,7 @@ public class SplitControllerRedesigned {
     private void updateUI() {
         boolean hasFile = selectedFile != null;
         boolean isExtractMode = extractPagesToggle.isSelected();
+        boolean isCustomRangeMode = !isExtractMode && customRangesToggle != null && customRangesToggle.isSelected();
         boolean hasSelectedPages = selectedPagesCountProperty.get() > 0;
         boolean hasValidExtractSpec = false;
         boolean hasExtractText = extractPagesField.getText() != null && !extractPagesField.getText().trim().isEmpty();
@@ -720,6 +732,26 @@ public class SplitControllerRedesigned {
                 extractPagesField.setPromptText("Clear page selections to use text input");
             } else {
                 extractPagesField.setPromptText("e.g., 1-3, 5, 7-9");
+            }
+        }
+        
+        // TASK 1: In Custom Range mode, disable Range Editor when pages are selected
+        if (isCustomRangeMode && rangeEditorSection != null) {
+            boolean shouldDisableRangeEditor = hasSelectedPages;
+            rangeEditorSection.setDisable(shouldDisableRangeEditor);
+            
+            // Update validation label to show helpful message
+            if (shouldDisableRangeEditor && validationLabel != null) {
+                validationLabel.setText(LocaleManager.getString("split.rangeEditor.disabledDueToSelection"));
+                validationLabel.setVisible(true);
+                validationLabel.setManaged(true);
+                validationLabel.getStyleClass().remove("validation-error");
+                validationLabel.getStyleClass().add("hint-label");
+            } else if (!shouldDisableRangeEditor && validationLabel != null) {
+                // Restore normal validation behavior
+                validationLabel.getStyleClass().remove("hint-label");
+                validationLabel.getStyleClass().add("validation-error");
+                validateCurrentRange();
             }
         }
         
@@ -847,13 +879,45 @@ public class SplitControllerRedesigned {
     }
     
     private void handleSplitByRanges(File outputFolder) {
-        // Get range from spinners
-        int from = fromPageSpinner.getValue();
-        int to = toPageSpinner.getValue();
+        // TASK 1: Check if pages are selected (takes priority over range editor)
+        boolean hasSelectedPages = selectedPagesCountProperty.get() > 0;
         
-        // Create a single page range from the spinner values
         List<PdfSplitService.PageRange> pageRanges = new ArrayList<>();
-        pageRanges.add(new PdfSplitService.PageRange(from, to));
+        
+        if (hasSelectedPages) {
+            // Use selected pages to create ranges
+            List<Integer> selectedPageNumbers = pageThumbnails.stream()
+                .filter(PageThumbnailCard::isSelected)
+                .map(PageThumbnailCard::getPageNumber)
+                .sorted()
+                .collect(Collectors.toList());
+            
+            // Group consecutive pages into ranges
+            if (!selectedPageNumbers.isEmpty()) {
+                int rangeStart = selectedPageNumbers.get(0);
+                int rangeEnd = selectedPageNumbers.get(0);
+                
+                for (int i = 1; i < selectedPageNumbers.size(); i++) {
+                    int currentPage = selectedPageNumbers.get(i);
+                    if (currentPage == rangeEnd + 1) {
+                        // Consecutive page, extend range
+                        rangeEnd = currentPage;
+                    } else {
+                        // Non-consecutive, save current range and start new one
+                        pageRanges.add(new PdfSplitService.PageRange(rangeStart, rangeEnd));
+                        rangeStart = currentPage;
+                        rangeEnd = currentPage;
+                    }
+                }
+                // Add the last range
+                pageRanges.add(new PdfSplitService.PageRange(rangeStart, rangeEnd));
+            }
+        } else {
+            // Use range from spinners
+            int from = fromPageSpinner.getValue();
+            int to = toPageSpinner.getValue();
+            pageRanges.add(new PdfSplitService.PageRange(from, to));
+        }
         
         // Create and execute real split task
         final String baseFileName = selectedFile.getName().replace(".pdf", "");
@@ -1376,7 +1440,13 @@ public class SplitControllerRedesigned {
                                 }
                             });
                         }
+                        
+                        // Update UI to handle range editor state (TASK 1)
+                        updateUI();
                     });
+                    
+                    // TASK 2: Setup drag-to-select functionality
+                    setupDragSelection(card);
                     
                     Platform.runLater(() -> {
                         pageThumbnails.add(card);
@@ -1513,6 +1583,45 @@ public class SplitControllerRedesigned {
         }
         updateDeselectButtonVisibility();
         updateSelectedPagesCount();
+    }
+    
+    /**
+     * TASK 2: Setup drag-to-select functionality for a page card.
+     * Allows users to click and drag across pages to select/deselect multiple pages.
+     */
+    private void setupDragSelection(PageThumbnailCard card) {
+        // On mouse press: start drag, determine selection mode
+        card.setOnMousePressed(event -> {
+            if (event.isPrimaryButtonDown()) {
+                isDragging = true;
+                // Determine mode: if clicking on unselected, we select; if clicking on selected, we deselect
+                dragSelectionMode = !card.isSelected();
+                card.setSelected(dragSelectionMode);
+                event.consume();
+            }
+        });
+        
+        // On mouse drag entered: apply selection mode
+        card.setOnMouseDragEntered(event -> {
+            if (isDragging) {
+                card.setSelected(dragSelectionMode);
+                event.consume();
+            }
+        });
+        
+        // On mouse release: end drag
+        card.setOnMouseReleased(event -> {
+            if (isDragging) {
+                isDragging = false;
+                event.consume();
+            }
+        });
+        
+        // Enable full press-drag-release detection
+        card.setOnDragDetected(event -> {
+            card.startFullDrag();
+            event.consume();
+        });
     }
     
     private void updateLoadStatus() {
