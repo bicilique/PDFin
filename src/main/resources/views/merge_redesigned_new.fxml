@@ -154,27 +154,31 @@
     </HBox>
     
     <!-- Progress Overlay -->
-    <StackPane fx:id="progressOverlay" styleClass="progress-overlay-fullscreen" visible="false">
-        <VBox alignment="CENTER" spacing="16" styleClass="progress-dialog">
-            <Label text="%merge.progress.title" styleClass="progress-dialog-title"/>
-            <ProgressBar fx:id="progressBar" prefWidth="280" styleClass="progress-bar-large"/>
-            <Label fx:id="progressLabel" text="%merge.progress.processing" styleClass="progress-dialog-text"/>
-        </VBox>
-    </StackPane>
-    
-    <!-- Success Overlay -->
-    <StackPane fx:id="successOverlay" styleClass="result-overlay" visible="false">
-        <VBox alignment="CENTER" spacing="20" styleClass="result-dialog success-dialog">
-            <Label text="✓" styleClass="result-icon success-icon"/>
-            <VBox alignment="CENTER" spacing="8">
-                <Label text="%merge.success.title" styleClass="result-title"/>
-                <Label fx:id="successMessage" text="" styleClass="result-message" wrapText="true" textAlignment="CENTER"/>
+    <!-- Progress Overlay (unified with success pane like Split/Compress) -->
+    <StackPane fx:id="progressOverlay" styleClass="progress-overlay" visible="false" managed="false">
+        <VBox alignment="CENTER" spacing="24" styleClass="progress-card" maxWidth="480" maxHeight="400">
+            <VBox alignment="CENTER" spacing="16">
+                <Label fx:id="progressTitle" text="%merge.progress.title" styleClass="progress-title"/>
+                <ProgressBar fx:id="progressBar" prefWidth="360" styleClass="progress-bar" progress="-1"/>
+                <Label fx:id="progressMessage" text="%merge.progress.processing" styleClass="progress-message" wrapText="true" textAlignment="CENTER"/>
             </VBox>
-            <VBox spacing="10" alignment="CENTER" style="-fx-max-width: 320px;">
-                <Button fx:id="openFolderButton" text="%merge.success.openFolder" 
-                        styleClass="primary-button-large" maxWidth="Infinity" onAction="#handleOpenFolder"/>
-                <Button fx:id="mergeAnotherButton" text="%merge.success.mergeAnother" 
-                        styleClass="secondary-button-large" maxWidth="Infinity" onAction="#handleMergeAnother"/>
+            
+            <Button fx:id="cancelProcessButton" text="%app.cancel" styleClass="secondary-button" 
+                   onAction="#handleCancelProcess"/>
+            
+            <!-- Success Pane (Initially Hidden, nested inside progress overlay) -->
+            <VBox fx:id="successPane" alignment="CENTER" spacing="16" visible="false" managed="false">
+                <Label text="✓" styleClass="success-icon" style="-fx-font-size: 40px;"/>
+                <Label fx:id="successMessage" text="%merge.success.title" 
+                      styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="360"/>
+                <HBox spacing="12" alignment="CENTER">
+                    <Button fx:id="openFolderButton" text="%merge.success.openFolder" 
+                           styleClass="secondary-button" onAction="#handleOpenFolder"/>
+                    <Button fx:id="mergeAnotherButton" text="%merge.success.mergeAnother" 
+                           styleClass="primary-button" onAction="#handleMergeAnother"/>
+                    <Button fx:id="closeSuccessButton" text="%app.close" 
+                           styleClass="secondary-button" onAction="#handleCloseSuccess"/>
+                </HBox>
             </VBox>
         </VBox>
     </StackPane>

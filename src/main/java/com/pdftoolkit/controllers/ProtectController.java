@@ -68,15 +68,17 @@ public class ProtectController {
     @FXML private VBox statusInfoBox;
     @FXML private Label statusInfoLabel;
     
-    // OVERLAYS
+    // OVERLAYS (unified like Split/Compress)
     @FXML private StackPane progressOverlay;
+    @FXML private Label progressTitle;
     @FXML private ProgressBar progressBar;
-    @FXML private Label progressLabel;
-    @FXML private Label progressDetailLabel;
-    @FXML private StackPane successOverlay;
+    @FXML private Label progressMessage;
+    @FXML private Button cancelProcessButton;
+    @FXML private VBox successPane;
     @FXML private Label successMessage;
     @FXML private Button openFolderButton;
     @FXML private Button lockAnotherButton;
+    @FXML private Button closeSuccessButton;
     
     // Data
     private final ObservableList<SelectedPdfItem> selectedFiles = FXCollections.observableArrayList();
@@ -106,8 +108,10 @@ public class ProtectController {
         updateFilesView();
         
         // Hide overlays initially
-        if (progressOverlay != null) progressOverlay.setVisible(false);
-        if (successOverlay != null) successOverlay.setVisible(false);
+        if (progressOverlay != null) {
+            progressOverlay.setVisible(false);
+            progressOverlay.setManaged(false);
+        }
         if (statusInfoBox != null) {
             statusInfoBox.setVisible(false);
             statusInfoBox.setManaged(false);
@@ -652,7 +656,6 @@ public class ProtectController {
         updateFilesView();
         updateFileNameSection();
         
-        if (successOverlay != null) successOverlay.setVisible(false);
         if (statusInfoBox != null) {
             statusInfoBox.setVisible(false);
             statusInfoBox.setManaged(false);
@@ -727,8 +730,7 @@ public class ProtectController {
                 final int finalFailure = failureCount;
                 
                 Platform.runLater(() -> {
-                    hideProgressOverlay();
-                    showSuccessOverlay(finalSuccess, finalFailure);
+                    showSuccess(finalSuccess, finalFailure);
                 });
                 
                 return null;
@@ -737,7 +739,7 @@ public class ProtectController {
         
         // Bind progress
         progressBar.progressProperty().bind(lockTask.progressProperty());
-        progressLabel.textProperty().bind(lockTask.messageProperty());
+        progressMessage.textProperty().bind(lockTask.messageProperty());
         
         // Start task
         new Thread(lockTask).start();
@@ -747,9 +749,12 @@ public class ProtectController {
      * Shows progress overlay.
      */
     private void showProgressOverlay() {
-        if (progressOverlay != null) {
-            progressOverlay.setVisible(true);
-        }
+        progressOverlay.setVisible(true);
+        progressOverlay.setManaged(true);
+        successPane.setVisible(false);
+        successPane.setManaged(false);
+        cancelProcessButton.setVisible(true);
+        cancelProcessButton.setManaged(true);
         
         // Don't manually disable buttons if they have bindings
         // lockPdfButton has a binding, so don't call setDisable on it
@@ -762,9 +767,12 @@ public class ProtectController {
      * Hides progress overlay.
      */
     private void hideProgressOverlay() {
-        if (progressOverlay != null) {
-            progressOverlay.setVisible(false);
-        }
+        // Unbind properties before hiding to prevent binding errors
+        progressBar.progressProperty().unbind();
+        progressMessage.textProperty().unbind();
+        
+        progressOverlay.setVisible(false);
+        progressOverlay.setManaged(false);
         
         // Re-enable inputs (only those without bindings)
         selectFilesButton.setDisable(false);
@@ -773,13 +781,9 @@ public class ProtectController {
     }
     
     /**
-     * Shows success overlay with results.
+     * Shows success state with results.
      */
-    private void showSuccessOverlay(int successCount, int failureCount) {
-        if (successOverlay == null || successMessage == null) {
-            return;
-        }
-        
+    private void showSuccess(int successCount, int failureCount) {
         String message;
         if (failureCount == 0) {
             message = String.format(
@@ -798,15 +802,18 @@ public class ProtectController {
             );
         }
         
+        cancelProcessButton.setVisible(false);
+        cancelProcessButton.setManaged(false);
+        successPane.setVisible(true);
+        successPane.setManaged(true);
         successMessage.setText(message);
-        successOverlay.setVisible(true);
     }
     
     /**
      * Opens output folder in system file manager.
      */
     @FXML
-    private void openOutputFolder(ActionEvent event) {
+    private void handleOpenFolder() {
         if (outputFolder != null && outputFolder.exists()) {
             try {
                 Desktop.getDesktop().open(outputFolder);
@@ -820,10 +827,26 @@ public class ProtectController {
      * Hides success overlay and resets for another operation.
      */
     @FXML
-    private void lockAnother(ActionEvent event) {
-        if (successOverlay != null) {
-            successOverlay.setVisible(false);
+    private void handleLockAnother() {
+        hideProgressOverlay();
+        resetForm(null);
+    }
+    
+    /**
+     * Handle cancel process button.
+     */
+    @FXML
+    private void handleCancelProcess() {
+        if (lockTask != null && lockTask.isRunning()) {
+            lockTask.cancel();
         }
-        resetForm(event);
+    }
+    
+    /**
+     * Handle close success button.
+     */
+    @FXML
+    private void handleCloseSuccess() {
+        hideProgressOverlay();
     }
 }

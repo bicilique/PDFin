@@ -71,16 +71,17 @@ public class CompressControllerRedesigned {
     @FXML private Button browseOutputButton;
     @FXML private Button compressButton;
 
-    // Progress Overlay
+    // Progress overlay elements (unified like Split)
     @FXML private StackPane progressOverlay;
+    @FXML private Label progressTitle;
     @FXML private ProgressBar progressBar;
     @FXML private Label progressMessage;
-    
-    // Success Overlay
-    @FXML private StackPane successOverlay;
+    @FXML private Button cancelProcessButton;
+    @FXML private VBox successPane;
     @FXML private Label successMessage;
     @FXML private Button openFolderButton;
     @FXML private Button processAnotherButton;
+    @FXML private Button closeSuccessButton;
 
     // State and Services
     private CompressPdfState state;
@@ -657,14 +658,33 @@ public class CompressControllerRedesigned {
     }
 
     /**
+     * Handle cancel process button.
+     */
+    @FXML
+    private void handleCancelProcess() {
+        if (currentTask != null && currentTask.isRunning()) {
+            currentTask.cancel();
+        }
+    }
+
+    /**
+     * Handle close success button.
+     */
+    @FXML
+    private void handleCloseSuccess() {
+        hideProgressOverlay();
+    }
+
+    /**
      * Show progress overlay.
      */
     private void showProgressOverlay() {
-        // Don't set text manually - let the task binding handle it
-        // The task will set its message property which is bound to progressMessage
-        
         progressOverlay.setVisible(true);
-        successOverlay.setVisible(false);
+        progressOverlay.setManaged(true);
+        successPane.setVisible(false);
+        successPane.setManaged(false);
+        cancelProcessButton.setVisible(true);
+        cancelProcessButton.setManaged(true);
     }
 
     /**
@@ -676,7 +696,7 @@ public class CompressControllerRedesigned {
         progressMessage.textProperty().unbind();
         
         progressOverlay.setVisible(false);
-        successOverlay.setVisible(false);
+        progressOverlay.setManaged(false);
     }
 
     /**
@@ -690,10 +710,12 @@ public class CompressControllerRedesigned {
         } else {
             message = String.format(bundle.getString("compress.success.multiple"), fileCount);
         }
-        successMessage.setText(message);
         
-        progressOverlay.setVisible(false);
-        successOverlay.setVisible(true);
+        cancelProcessButton.setVisible(false);
+        cancelProcessButton.setManaged(false);
+        successPane.setVisible(true);
+        successPane.setManaged(true);
+        successMessage.setText(message);
     }
 
     /**

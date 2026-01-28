@@ -66,15 +66,17 @@ public class MergeControllerRedesignedNew {
     @FXML private Button mergeButton;
     @FXML private Button resetButton;
     
-    // OVERLAYS
+    // OVERLAYS (unified like Split/Compress)
     @FXML private StackPane progressOverlay;
+    @FXML private Label progressTitle;
     @FXML private ProgressBar progressBar;
-    @FXML private Label progressLabel;
-    @FXML private Label progressDetailLabel;
-    @FXML private StackPane successOverlay;
+    @FXML private Label progressMessage;
+    @FXML private Button cancelProcessButton;
+    @FXML private VBox successPane;
     @FXML private Label successMessage;
     @FXML private Button openFolderButton;
     @FXML private Button mergeAnotherButton;
+    @FXML private Button closeSuccessButton;
     
     // Data and Services
     private final ObservableList<PdfItem> selectedFiles = FXCollections.observableArrayList();
@@ -95,8 +97,10 @@ public class MergeControllerRedesignedNew {
         updateFilesView();
         
         // Hide overlays initially
-        if (progressOverlay != null) progressOverlay.setVisible(false);
-        if (successOverlay != null) successOverlay.setVisible(false);
+        if (progressOverlay != null) {
+            progressOverlay.setVisible(false);
+            progressOverlay.setManaged(false);
+        }
         
         // Setup locale change listener
         LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> updateTexts());
@@ -752,7 +756,7 @@ public class MergeControllerRedesignedNew {
         
         // Bind progress
         progressBar.progressProperty().bind(mergeTask.progressProperty());
-        progressLabel.textProperty().bind(mergeTask.messageProperty());
+        progressMessage.textProperty().bind(mergeTask.messageProperty());
         
         mergeTask.setOnSucceeded(e -> Platform.runLater(() -> {
             File result = mergeTask.getValue();
@@ -804,13 +808,29 @@ public class MergeControllerRedesignedNew {
      */
     @FXML
     private void handleMergeAnother() {
-        hideSuccessOverlay();
+        hideProgressOverlay();
         selectedFiles.clear();
         outputFilenameField.setText("merged.pdf");
     }
     
     /**
-     * Show progress overlay.
+     * Handle cancel process button.
+     */
+    @FXML
+    private void handleCancelProcess() {
+        if (mergeTask != null && mergeTask.isRunning()) {
+            mergeTask.cancel();
+        }
+    }
+    
+    /**
+     * Handle close success button.
+     */
+    @FXML
+    private void handleCloseSuccess() {
+        hideProgressOverlay();
+    }
+    
     /**
      * Get a unique output file by appending numbers if file exists.
      * Example: merged.pdf -> merged_1.pdf -> merged_2.pdf
@@ -837,35 +857,37 @@ public class MergeControllerRedesignedNew {
     private void showProgressOverlay() {
         progressOverlay.setVisible(true);
         progressOverlay.setManaged(true);
+        successPane.setVisible(false);
+        successPane.setManaged(false);
+        cancelProcessButton.setVisible(true);
+        cancelProcessButton.setManaged(true);
     }
     
     /**
      * Hide progress overlay.
      */
     private void hideProgressOverlay() {
+        // Unbind properties before hiding to prevent binding errors
+        progressBar.progressProperty().unbind();
+        progressMessage.textProperty().unbind();
+        
         progressOverlay.setVisible(false);
         progressOverlay.setManaged(false);
     }
     
     /**
-     * Show success overlay.
+     * Show success state.
      */
     private void showSuccess(String filename) {
-        hideProgressOverlay();
         successMessage.setText(String.format(
             LocaleManager.getString("merge.success.message"), 
             filename
         ));
-        successOverlay.setVisible(true);
-        successOverlay.setManaged(true);
-    }
-    
-    /**
-     * Hide success overlay.
-     */
-    private void hideSuccessOverlay() {
-        successOverlay.setVisible(false);
-        successOverlay.setManaged(false);
+        
+        cancelProcessButton.setVisible(false);
+        cancelProcessButton.setManaged(false);
+        successPane.setVisible(true);
+        successPane.setManaged(true);
     }
     
     /**
