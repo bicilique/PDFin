@@ -5,7 +5,6 @@ import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfSplitService;
 import com.pdftoolkit.services.PdfThumbnailService;
 import com.pdftoolkit.ui.PageThumbnailCard;
-import com.pdftoolkit.ui.RangeCard;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
@@ -42,6 +41,15 @@ import java.util.stream.Collectors;
  * 
  * Now uses real PDF services (PdfSplitService, PdfThumbnailService).
  * Focuses on processing ONE file at a time with all page previews visible.
+ * 
+ * MODES:
+ * - Split by Ranges > Custom Ranges (Manual): User manually defines ranges via Range Editor
+ * - Split by Ranges > Fixed Interval (Auto): Automatically split into equal chunks
+ * - Extract Pages: User specifies pages via text input OR selects pages from preview
+ * 
+ * IMPORTANT: Page preview selection is ONLY used in "Extract Pages" mode.
+ * In "Split by Ranges" modes, page clicks only highlight/focus the page for visual reference.
+ * The Range Editor remains independent of page preview interactions.
  */
 public class SplitControllerRedesigned {
 
@@ -121,8 +129,6 @@ public class SplitControllerRedesigned {
     private File selectedFile;
     private int totalPages = 0;
     private final ObservableList<PageThumbnailCard> pageThumbnails = FXCollections.observableArrayList();
-    private final ObservableList<RangeCard> rangeCards = FXCollections.observableArrayList();
-    private RangeCard selectedRangeCard;
     private PageThumbnailCard pageToDelete; // Track page/range pending deletion
     private final PdfSplitService splitService = new PdfSplitService();
     private final PdfThumbnailService thumbnailService = new PdfThumbnailService();
@@ -141,6 +147,7 @@ public class SplitControllerRedesigned {
     private final BooleanProperty noContentProperty = new SimpleBooleanProperty(true);
     private final IntegerProperty loadedThumbnailsCountProperty = new SimpleIntegerProperty(0);
     private final BooleanProperty isLoadingProperty = new SimpleBooleanProperty(false);
+    private final IntegerProperty selectedPagesCountProperty = new SimpleIntegerProperty(0);
     
     // State persistence
     private final AppState.SplitToolState toolState = AppState.getInstance().getSplitToolState();
@@ -190,10 +197,13 @@ public class SplitControllerRedesigned {
                 extractPagesSection.setManaged(false);
                 rangeTypeSection.setVisible(true);
                 rangeTypeSection.setManaged(true);
-                // Re-enable range editor if file is loaded
+                // Enable range editor if file is loaded (allow adding first range)
                 if (selectedFile != null) {
-                    rangeEditorSection.setDisable(selectedRangeCard == null);
+                    // Only enable if in custom ranges mode (not fixed interval)
+                    rangeEditorSection.setDisable(fixedRangesToggle.isSelected());
                 }
+                // Clear page selections when leaving Extract mode
+                clearPageSelections();
             } else if (newToggle == extractPagesToggle) {
                 // Show extract pages, hide range editor
                 rangeEditorSection.setVisible(false);
@@ -224,8 +234,9 @@ public class SplitControllerRedesigned {
                 rangeEditorSection.setManaged(true);
                 fixedIntervalSection.setVisible(false);
                 fixedIntervalSection.setManaged(false);
+                // Always enable range editor in custom ranges mode (allow adding first range)
                 if (selectedFile != null) {
-                    rangeEditorSection.setDisable(selectedRangeCard == null);
+                    rangeEditorSection.setDisable(false);
                 }
             } else if (newToggle == fixedRangesToggle) {
                 // Show fixed interval, hide custom range editor
@@ -245,30 +256,24 @@ public class SplitControllerRedesigned {
         toPageSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1, 1));
         pagesPerFileSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 100, 5));
         
-        // Spinner listeners for validation and updating current range
+        // Spinner listeners for validation
         fromPageSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
             validateCurrentRange();
-            if (selectedRangeCard != null && newVal != null) {
-                selectedRangeCard.setRange(newVal, toPageSpinner.getValue());
-            }
         });
         toPageSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
             validateCurrentRange();
-            if (selectedRangeCard != null && newVal != null) {
-                selectedRangeCard.setRange(fromPageSpinner.getValue(), newVal);
-            }
         });
         
         // Extract pages field listener for validation
         extractPagesField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (selectedFile != null && extractPagesToggle.isSelected()) {
                 validateExtractPages();
+                
+                // If user types in extract field, clear page selections
+                if (newVal != null && !newVal.trim().isEmpty()) {
+                    clearPageSelections();
+                }
             }
-            updateUI();
-        });
-        
-        // Range card selection listener
-        rangeCards.addListener((javafx.collections.ListChangeListener<RangeCard>) c -> {
             updateUI();
         });
         
@@ -354,23 +359,39 @@ public class SplitControllerRedesigned {
             
             // Mode-specific validation
             if (extractPagesToggle.isSelected()) {
-                // Extract mode: must have page selection or valid page spec
+                // Extract mode: must have page selection OR valid page spec (not both)
                 String pageSpec = extractPagesField.getText();
-                if (pageSpec != null && !pageSpec.trim().isEmpty()) {
+                boolean hasPageSpec = pageSpec != null && !pageSpec.trim().isEmpty();
+                boolean hasSelectedPages = selectedPagesCountProperty.get() > 0;
+                
+                if (hasPageSpec) {
+                    // Validate page spec
                     try {
                         com.pdftoolkit.utils.PageRangeParser.parse(pageSpec.trim(), totalPages);
                         return true;
                     } catch (IllegalArgumentException e) {
                         return false;
                     }
+                } else if (hasSelectedPages) {
+                    // Has page selection
+                    return true;
                 }
-                // Or check if any pages are selected
-                return pageThumbnails.stream().anyMatch(PageThumbnailCard::isSelected);
+                return false;
+            } else if (fixedRangesToggle.isSelected()) {
+                // Fixed interval mode: validate pages per file
+                int pagesPerFile = pagesPerFileSpinner.getValue() != null ? pagesPerFileSpinner.getValue() : 0;
+                return pagesPerFile > 0 && pagesPerFile <= totalPages;
             } else {
-                // Range mode: must have valid range
-                int from = fromPageSpinner.getValue() != null ? fromPageSpinner.getValue() : 0;
-                int to = toPageSpinner.getValue() != null ? toPageSpinner.getValue() : 0;
-                return from > 0 && to > 0 && from <= to && to <= totalPages;
+                // Custom ranges mode: validate range in spinners
+                Integer from = fromPageSpinner.getValue();
+                Integer to = toPageSpinner.getValue();
+                
+                if (from == null || to == null) {
+                    return false;
+                }
+                
+                // Check if range is valid (from <= to and within bounds)
+                return from <= to && from >= 1 && to <= totalPages;
             }
         },
         // Observable dependencies
@@ -378,7 +399,9 @@ public class SplitControllerRedesigned {
         extractPagesField.textProperty(),
         fromPageSpinner.valueProperty(),
         toPageSpinner.valueProperty(),
-        modeToggleGroup.selectedToggleProperty()
+        pagesPerFileSpinner.valueProperty(),
+        modeToggleGroup.selectedToggleProperty(),
+        selectedPagesCountProperty  // Listen to page selection changes
         );
         
         // Bind the split button's disable property (disable when canSplit is false)
@@ -535,7 +558,7 @@ public class SplitControllerRedesigned {
             toolState.setTotalPages(totalPages);
             
             // Update UI
-            String fileInfo = String.format(LocaleManager.getString("split.fileInfo"), 
+            String fileInfo = String.format(LocaleManager.getString("split.filesPane.fileInfo"), 
                                            file.getName(), totalPages);
             selectedFileInfoLabel.setText(fileInfo);
             
@@ -559,11 +582,25 @@ public class SplitControllerRedesigned {
             fromPageSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, totalPages, 1));
             toPageSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, totalPages, totalPages));
             
-            // Enable sections
+            // Enable sections based on current mode
             modeSection.setDisable(false);
-            rangeEditorSection.setDisable(false);
             outputSection.setDisable(false);
-            extractPagesSection.setDisable(false);
+            
+            // Enable appropriate sections based on selected mode
+            if (extractPagesToggle.isSelected()) {
+                extractPagesSection.setDisable(false);
+                rangeEditorSection.setDisable(true);
+                fixedIntervalSection.setDisable(true);
+            } else if (fixedRangesToggle.isSelected()) {
+                fixedIntervalSection.setDisable(false);
+                rangeEditorSection.setDisable(true);
+                extractPagesSection.setDisable(true);
+            } else {
+                // Custom ranges mode (default)
+                rangeEditorSection.setDisable(false);
+                fixedIntervalSection.setDisable(true);
+                extractPagesSection.setDisable(true);
+            }
             
             // Start progressive loading with initial batch
             int initialBatch = calculateInitialBatchSize();
@@ -636,70 +673,6 @@ public class SplitControllerRedesigned {
         thread.start();
     }
     
-    @FXML
-    private void handleAddRange() {
-        if (selectedFile == null) {
-            showAlert(LocaleManager.getString("split.noFileSelected"), Alert.AlertType.WARNING);
-            return;
-        }
-        
-        int rangeNumber = rangeCards.size() + 1;
-        RangeCard card = new RangeCard(rangeNumber);
-        
-        // Set default range values from spinners
-        int from = fromPageSpinner.getValue();
-        int to = toPageSpinner.getValue();
-        card.setRange(from, to);
-        
-        // Provide source file for thumbnails
-        if (selectedFile != null) {
-            card.setSourceFile(selectedFile);
-        }
-        
-        // Setup remove button
-        card.getRemoveButton().setOnAction(e -> {
-            confirmAndRemoveRange(card);
-        });
-        
-        // Setup selection
-        card.setOnMouseClicked(e -> {
-            selectRangeCard(card);
-        });
-        
-        rangeCards.add(card);
-        selectRangeCard(card);
-        updateUI();
-    }
-    
-    private void selectRangeCard(RangeCard card) {
-        // Deselect all
-        rangeCards.forEach(c -> c.setSelected(false));
-        
-        // Select this one
-        card.setSelected(true);
-        selectedRangeCard = card;
-        
-        // Update spinners to show selected range
-        fromPageSpinner.getValueFactory().setValue(card.getFromPage());
-        toPageSpinner.getValueFactory().setValue(card.getToPage());
-    }
-    
-    private void confirmAndRemoveRange(RangeCard card) {
-        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmation.setTitle(LocaleManager.getString("split.confirmRemove"));
-        confirmation.setHeaderText(null);
-        confirmation.setContentText(LocaleManager.getString("split.confirmRemoveMessage"));
-        
-        Optional<ButtonType> result = confirmation.showAndWait();
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            rangeCards.remove(card);
-            if (selectedRangeCard == card) {
-                selectedRangeCard = null;
-            }
-            updateUI();
-        }
-    }
-    
     private void validateCurrentRange() {
         if (fromPageSpinner.getValue() == null || toPageSpinner.getValue() == null) {
             return;
@@ -725,20 +698,28 @@ public class SplitControllerRedesigned {
     private void updateUI() {
         boolean hasFile = selectedFile != null;
         boolean isExtractMode = extractPagesToggle.isSelected();
-        boolean hasRanges = !rangeCards.isEmpty();
-        boolean hasSelectedPages = pageThumbnails.stream().anyMatch(PageThumbnailCard::isSelected);
+        boolean hasSelectedPages = selectedPagesCountProperty.get() > 0;
         boolean hasValidExtractSpec = false;
+        boolean hasExtractText = extractPagesField.getText() != null && !extractPagesField.getText().trim().isEmpty();
         
         // Check if Extract Pages mode has valid spec
-        if (isExtractMode && hasFile) {
+        if (isExtractMode && hasFile && hasExtractText) {
             String pageSpec = extractPagesField.getText();
-            if (pageSpec != null && !pageSpec.trim().isEmpty()) {
-                try {
-                    com.pdftoolkit.utils.PageRangeParser.parse(pageSpec.trim(), totalPages);
-                    hasValidExtractSpec = true;
-                } catch (IllegalArgumentException e) {
-                    hasValidExtractSpec = false;
-                }
+            try {
+                com.pdftoolkit.utils.PageRangeParser.parse(pageSpec.trim(), totalPages);
+                hasValidExtractSpec = true;
+            } catch (IllegalArgumentException e) {
+                hasValidExtractSpec = false;
+            }
+        }
+        
+        // In Extract mode, disable text field if pages are selected, and vice versa
+        if (isExtractMode && extractPagesField != null) {
+            extractPagesField.setDisable(hasSelectedPages);
+            if (hasSelectedPages) {
+                extractPagesField.setPromptText("Clear page selections to use text input");
+            } else {
+                extractPagesField.setPromptText("e.g., 1-3, 5, 7-9");
             }
         }
         
@@ -754,24 +735,35 @@ public class SplitControllerRedesigned {
         
         // Check mode-specific validation
         if (extractPagesToggle.isSelected()) {
-            // Extract Pages mode: validate page specification
+            // Extract Pages mode: validate page specification OR page selection
             String pageSpec = extractPagesField.getText();
-            if (pageSpec == null || pageSpec.trim().isEmpty()) {
+            boolean hasPageSpec = pageSpec != null && !pageSpec.trim().isEmpty();
+            boolean hasSelectedPages = selectedPagesCountProperty.get() > 0;
+            
+            if (!hasPageSpec && !hasSelectedPages) {
+                // Neither page spec nor selection
                 extractValidationLabel.setText(LocaleManager.getString("validation.emptyPageSpec"));
                 extractValidationLabel.setVisible(true);
                 extractValidationLabel.setManaged(true);
                 return false;
             }
-            // Try parsing to validate
-            try {
-                com.pdftoolkit.utils.PageRangeParser.parse(pageSpec.trim(), totalPages);
+            
+            if (hasPageSpec) {
+                // Validate page spec
+                try {
+                    com.pdftoolkit.utils.PageRangeParser.parse(pageSpec.trim(), totalPages);
+                    extractValidationLabel.setVisible(false);
+                    extractValidationLabel.setManaged(false);
+                } catch (IllegalArgumentException e) {
+                    extractValidationLabel.setText(e.getMessage());
+                    extractValidationLabel.setVisible(true);
+                    extractValidationLabel.setManaged(true);
+                    return false;
+                }
+            } else {
+                // Has page selection - clear validation
                 extractValidationLabel.setVisible(false);
                 extractValidationLabel.setManaged(false);
-            } catch (IllegalArgumentException e) {
-                extractValidationLabel.setText(e.getMessage());
-                extractValidationLabel.setVisible(true);
-                extractValidationLabel.setManaged(true);
-                return false;
             }
         } else if (fixedRangesToggle.isSelected()) {
             // Fixed Interval mode: validate pages per file
@@ -785,8 +777,12 @@ public class SplitControllerRedesigned {
             fixedIntervalValidationLabel.setVisible(false);
             fixedIntervalValidationLabel.setManaged(false);
         } else {
-            // Split by Range mode (custom ranges): validate ranges
-            if (rangeCards.isEmpty()) return false;
+            // Split by Range mode (custom ranges): validate range in spinners
+            Integer from = fromPageSpinner.getValue();
+            Integer to = toPageSpinner.getValue();
+            
+            if (from == null || to == null) return false;
+            if (from > to || from < 1 || to > totalPages) return false;
         }
         
         String outputPath = outputFolderField.getText();
@@ -817,7 +813,17 @@ public class SplitControllerRedesigned {
     @FXML
     private void handleSplit() {
         if (!isValid()) {
-            showAlert(LocaleManager.getString("validation.noRange"), Alert.AlertType.WARNING);
+            // Show appropriate error message based on mode
+            String errorMessage;
+            if (extractPagesToggle.isSelected()) {
+                errorMessage = LocaleManager.getString("validation.emptyPageSpec");
+            } else if (fixedRangesToggle.isSelected()) {
+                errorMessage = LocaleManager.getString("validation.invalidInterval");
+            } else {
+                // Custom ranges mode
+                errorMessage = LocaleManager.getString("validation.noCustomRanges");
+            }
+            showAlert(errorMessage, Alert.AlertType.WARNING);
             return;
         }
         
@@ -841,10 +847,13 @@ public class SplitControllerRedesigned {
     }
     
     private void handleSplitByRanges(File outputFolder) {
-        // Build page ranges from cards
-        List<PdfSplitService.PageRange> pageRanges = rangeCards.stream()
-            .map(card -> new PdfSplitService.PageRange(card.getFromPage(), card.getToPage()))
-            .collect(Collectors.toList());
+        // Get range from spinners
+        int from = fromPageSpinner.getValue();
+        int to = toPageSpinner.getValue();
+        
+        // Create a single page range from the spinner values
+        List<PdfSplitService.PageRange> pageRanges = new ArrayList<>();
+        pageRanges.add(new PdfSplitService.PageRange(from, to));
         
         // Create and execute real split task
         final String baseFileName = selectedFile.getName().replace(".pdf", "");
@@ -860,7 +869,7 @@ public class SplitControllerRedesigned {
                     return null;
                 }
                 
-                updateMessage("Preparing to split into " + pageRanges.size() + " ranges...");
+                updateMessage("Preparing to split into " + pageRanges.size() + " range...");
                 updateProgress(1, pageRanges.size() + 2);
                 Thread.sleep(200);
                 
@@ -945,7 +954,10 @@ public class SplitControllerRedesigned {
     }
     
     private void handleExtractPages(File outputFolder) {
+        // Check if using page spec or page selection
         String pageSpec = extractPagesField.getText().trim();
+        boolean usePageSelection = pageSpec.isEmpty() && selectedPagesCountProperty.get() > 0;
+        
         final String baseFileName = selectedFile.getName().replace(".pdf", "");
         
         currentTask = new Task<File>() {
@@ -959,17 +971,27 @@ public class SplitControllerRedesigned {
                     return null;
                 }
                 
-                // Parse page specification
+                // Parse page specification or get selected pages
                 List<Integer> pageNumbers;
-                try {
-                    pageNumbers = com.pdftoolkit.utils.PageRangeParser.parse(pageSpec, totalPages);
-                } catch (IllegalArgumentException e) {
-                    Platform.runLater(() -> {
-                        extractValidationLabel.setText(e.getMessage());
-                        extractValidationLabel.setVisible(true);
-                        extractValidationLabel.setManaged(true);
-                    });
-                    throw e;
+                if (usePageSelection) {
+                    // Use selected pages from thumbnails
+                    pageNumbers = pageThumbnails.stream()
+                        .filter(PageThumbnailCard::isSelected)
+                        .map(PageThumbnailCard::getPageNumber)
+                        .sorted()
+                        .collect(Collectors.toList());
+                } else {
+                    // Parse text specification
+                    try {
+                        pageNumbers = com.pdftoolkit.utils.PageRangeParser.parse(pageSpec, totalPages);
+                    } catch (IllegalArgumentException e) {
+                        Platform.runLater(() -> {
+                            extractValidationLabel.setText(e.getMessage());
+                            extractValidationLabel.setVisible(true);
+                            extractValidationLabel.setManaged(true);
+                        });
+                        throw e;
+                    }
                 }
                 
                 updateMessage("Extracting " + pageNumbers.size() + " pages...");
@@ -1065,8 +1087,6 @@ public class SplitControllerRedesigned {
         totalPages = 0;
         totalPageCount = 0;
         loadedPageCount = 0;
-        rangeCards.clear();
-        selectedRangeCard = null;
         selectedFileInfoLabel.setText(LocaleManager.getString("split.noFileSelected"));
         
         // Clear page thumbnails and reset properties
@@ -1105,6 +1125,10 @@ public class SplitControllerRedesigned {
     }
     
     private void hideProgressOverlay() {
+        // Unbind properties before hiding to prevent binding errors
+        progressBar.progressProperty().unbind();
+        progressMessage.textProperty().unbind();
+        
         progressOverlay.setVisible(false);
         progressOverlay.setManaged(false);
     }
@@ -1170,8 +1194,6 @@ public class SplitControllerRedesigned {
         // Clear collections
         pageThumbnails.clear();
         pageGridContainer.getChildren().clear();
-        rangeCards.clear();
-        selectedRangeCard = null;
         
         // Reset properties
         loadedThumbnailsCountProperty.set(0);
@@ -1342,7 +1364,19 @@ public class SplitControllerRedesigned {
                     card.setOnDelete(() -> handlePageDelete(card));
                     
                     // Set selection change listener
-                    card.setOnSelectionChanged(() -> updateDeselectButtonVisibility());
+                    card.setOnSelectionChanged(() -> {
+                        updateDeselectButtonVisibility();
+                        updateSelectedPagesCount();
+                        
+                        // If user selects a page in Extract mode, clear the text field
+                        if (extractPagesToggle.isSelected() && card.isSelected()) {
+                            Platform.runLater(() -> {
+                                if (!extractPagesField.getText().isEmpty()) {
+                                    extractPagesField.clear();
+                                }
+                            });
+                        }
+                    });
                     
                     Platform.runLater(() -> {
                         pageThumbnails.add(card);
@@ -1449,6 +1483,7 @@ public class SplitControllerRedesigned {
             card.setSelected(false);
         }
         updateDeselectButtonVisibility();
+        updateSelectedPagesCount();
     }
     
     private void updateDeselectButtonVisibility() {
@@ -1457,6 +1492,27 @@ public class SplitControllerRedesigned {
             deselectAllButton.setVisible(hasSelection);
             deselectAllButton.setManaged(hasSelection);
         }
+    }
+    
+    /**
+     * Update the selected pages count property.
+     * This is called whenever page selection changes.
+     */
+    private void updateSelectedPagesCount() {
+        int count = (int) pageThumbnails.stream().filter(PageThumbnailCard::isSelected).count();
+        selectedPagesCountProperty.set(count);
+    }
+    
+    /**
+     * Clear all page selections.
+     * Used when user switches to text input mode in Extract Pages.
+     */
+    private void clearPageSelections() {
+        for (PageThumbnailCard card : pageThumbnails) {
+            card.setSelected(false);
+        }
+        updateDeselectButtonVisibility();
+        updateSelectedPagesCount();
     }
     
     private void updateLoadStatus() {
