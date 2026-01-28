@@ -660,8 +660,8 @@ public class CompressControllerRedesigned {
      * Show progress overlay.
      */
     private void showProgressOverlay() {
-        // Don't set progress manually - it's bound to task
-        progressMessage.setText(bundle.getString("compress.progress.processing"));
+        // Don't set text manually - let the task binding handle it
+        // The task will set its message property which is bound to progressMessage
         
         progressOverlay.setVisible(true);
         successOverlay.setVisible(false);
@@ -671,6 +671,10 @@ public class CompressControllerRedesigned {
      * Hide progress overlay.
      */
     private void hideProgressOverlay() {
+        // Unbind properties before hiding to prevent binding errors
+        progressBar.progressProperty().unbind();
+        progressMessage.textProperty().unbind();
+        
         progressOverlay.setVisible(false);
         successOverlay.setVisible(false);
     }

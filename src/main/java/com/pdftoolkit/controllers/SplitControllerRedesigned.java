@@ -882,80 +882,108 @@ public class SplitControllerRedesigned {
         // TASK 1: Check if pages are selected (takes priority over range editor)
         boolean hasSelectedPages = selectedPagesCountProperty.get() > 0;
         
-        List<PdfSplitService.PageRange> pageRanges = new ArrayList<>();
-        
         if (hasSelectedPages) {
-            // Use selected pages to create ranges
-            List<Integer> selectedPageNumbers = pageThumbnails.stream()
-                .filter(PageThumbnailCard::isSelected)
-                .map(PageThumbnailCard::getPageNumber)
-                .sorted()
-                .collect(Collectors.toList());
-            
-            // Group consecutive pages into ranges
-            if (!selectedPageNumbers.isEmpty()) {
-                int rangeStart = selectedPageNumbers.get(0);
-                int rangeEnd = selectedPageNumbers.get(0);
-                
-                for (int i = 1; i < selectedPageNumbers.size(); i++) {
-                    int currentPage = selectedPageNumbers.get(i);
-                    if (currentPage == rangeEnd + 1) {
-                        // Consecutive page, extend range
-                        rangeEnd = currentPage;
-                    } else {
-                        // Non-consecutive, save current range and start new one
-                        pageRanges.add(new PdfSplitService.PageRange(rangeStart, rangeEnd));
-                        rangeStart = currentPage;
-                        rangeEnd = currentPage;
-                    }
-                }
-                // Add the last range
-                pageRanges.add(new PdfSplitService.PageRange(rangeStart, rangeEnd));
-            }
+            // When pages are selected, create a SINGLE PDF with all selected pages
+            handleExtractSelectedPagesAsSingleFile(outputFolder);
         } else {
-            // Use range from spinners
-            int from = fromPageSpinner.getValue();
-            int to = toPageSpinner.getValue();
-            pageRanges.add(new PdfSplitService.PageRange(from, to));
+            // When using range editor, extract that specific range as a single file
+            handleExtractRangeAsSingleFile(outputFolder);
         }
+    }
+    
+    /**
+     * Extract selected pages into a single PDF file.
+     * This handles non-consecutive page selections (e.g., 1,3,5,7 → one file with those pages)
+     */
+    private void handleExtractSelectedPagesAsSingleFile(File outputFolder) {
+        List<Integer> selectedPageNumbers = pageThumbnails.stream()
+            .filter(PageThumbnailCard::isSelected)
+            .map(PageThumbnailCard::getPageNumber)
+            .sorted()
+            .collect(Collectors.toList());
         
-        // Create and execute real split task
         final String baseFileName = selectedFile.getName().replace(".pdf", "");
         
         currentTask = new Task<File>() {
             @Override
             protected File call() throws Exception {
-                updateMessage("Analyzing PDF structure...");
-                updateProgress(0, pageRanges.size() + 2);
-                Thread.sleep(300);
+                updateMessage("Extracting selected pages...");
+                updateProgress(0, 3);
+                Thread.sleep(200);
                 
                 if (isCancelled()) {
                     return null;
                 }
                 
-                updateMessage("Preparing to split into " + pageRanges.size() + " range...");
-                updateProgress(1, pageRanges.size() + 2);
-                Thread.sleep(200);
+                updateMessage(String.format("Creating PDF with %d selected pages...", selectedPageNumbers.size()));
+                updateProgress(1, 3);
                 
-                // Perform actual split using PdfSplitService
-                List<File> outputFiles = splitService.splitPdfByRanges(
-                    selectedFile, pageRanges, outputFolder, baseFileName
+                // Use extractPages to create a single combined file with unique name
+                String outputFileName = String.format("%s_selected_pages.pdf", baseFileName);
+                File outputFile = getUniqueOutputFile(outputFolder, outputFileName);
+                
+                // Extract all selected pages into ONE file
+                List<File> result = splitService.extractPagesAsSingleFile(
+                    selectedFile, selectedPageNumbers, outputFile
                 );
                 
-                // Update progress for each range
-                for (int i = 0; i < outputFiles.size(); i++) {
-                    if (isCancelled()) {
-                        return null;
-                    }
-                    updateMessage(String.format("Created range file %d of %d", i + 1, outputFiles.size()));
-                    updateProgress(i + 2, pageRanges.size() + 2);
-                    Thread.sleep(200);
+                updateProgress(2, 3);
+                Thread.sleep(200);
+                
+                updateMessage("Extraction complete! Created: " + outputFile.getName());
+                updateProgress(3, 3);
+                
+                return result.isEmpty() ? null : result.get(0);
+            }
+        };
+        
+        executeTask();
+    }
+    
+    /**
+     * Extract a range from spinners into a single PDF file.
+     */
+    private void handleExtractRangeAsSingleFile(File outputFolder) {
+        int from = fromPageSpinner.getValue();
+        int to = toPageSpinner.getValue();
+        
+        // Convert range to page list
+        List<Integer> pageNumbers = new ArrayList<>();
+        for (int i = from; i <= to; i++) {
+            pageNumbers.add(i);
+        }
+        
+        final String baseFileName = selectedFile.getName().replace(".pdf", "");
+        
+        currentTask = new Task<File>() {
+            @Override
+            protected File call() throws Exception {
+                updateMessage("Extracting page range...");
+                updateProgress(0, 3);
+                Thread.sleep(200);
+                
+                if (isCancelled()) {
+                    return null;
                 }
                 
-                updateMessage("Split complete! Created " + outputFiles.size() + " files.");
-                updateProgress(pageRanges.size() + 2, pageRanges.size() + 2);
+                updateMessage(String.format("Creating PDF with pages %d-%d...", from, to));
+                updateProgress(1, 3);
                 
-                return outputFolder;
+                String outputFileName = String.format("%s_pages_%d-%d.pdf", baseFileName, from, to);
+                File outputFile = getUniqueOutputFile(outputFolder, outputFileName);
+                
+                // Extract range into ONE file
+                List<File> result = splitService.extractPagesAsSingleFile(
+                    selectedFile, pageNumbers, outputFile
+                );
+                
+                updateProgress(2, 3);
+                Thread.sleep(200);
+                
+                updateMessage("Extraction complete! Created: " + outputFile.getName());
+                updateProgress(3, 3);
+                
+                return result.isEmpty() ? null : result.get(0);
             }
         };
         
@@ -1059,30 +1087,37 @@ public class SplitControllerRedesigned {
                 }
                 
                 updateMessage("Extracting " + pageNumbers.size() + " pages...");
-                updateProgress(1, pageNumbers.size() + 2);
+                updateProgress(1, 3);
                 Thread.sleep(200);
                 
                 if (isCancelled()) {
                     return null;
                 }
                 
-                // Perform actual extraction using PdfSplitService
-                List<File> outputFiles = splitService.extractPages(
-                    selectedFile, pageNumbers, outputFolder, baseFileName
+                // Generate output filename based on page selection
+                String outputFileName;
+                if (pageNumbers.size() == 1) {
+                    outputFileName = String.format("%s_page_%d.pdf", baseFileName, pageNumbers.get(0));
+                } else {
+                    outputFileName = String.format("%s_extracted_pages.pdf", baseFileName);
+                }
+                File outputFile = getUniqueOutputFile(outputFolder, outputFileName);
+                
+                // Extract pages into ONE file
+                List<File> outputFiles = splitService.extractPagesAsSingleFile(
+                    selectedFile, pageNumbers, outputFile
                 );
                 
-                // Update progress for each page
-                for (int i = 0; i < outputFiles.size(); i++) {
-                    if (isCancelled()) {
-                        return null;
-                    }
-                    updateMessage(String.format("Extracted page %d of %d", i + 1, outputFiles.size()));
-                    updateProgress(i + 2, pageNumbers.size() + 2);
-                    Thread.sleep(100);
+                updateMessage("Creating PDF with " + pageNumbers.size() + " pages...");
+                updateProgress(2, 3);
+                Thread.sleep(200);
+                
+                if (isCancelled()) {
+                    return null;
                 }
                 
-                updateMessage("Extraction complete! Created " + outputFiles.size() + " files.");
-                updateProgress(pageNumbers.size() + 2, pageNumbers.size() + 2);
+                updateMessage("Extraction complete! Created: " + outputFile.getName());
+                updateProgress(3, 3);
                 
                 return outputFolder;
             }
@@ -1586,22 +1621,66 @@ public class SplitControllerRedesigned {
     }
     
     /**
+     * Generate a unique file name by adding suffix (_1, _2, etc.) if file exists.
+     * For example: document.pdf -> document_1.pdf -> document_2.pdf
+     */
+    private File getUniqueOutputFile(File outputFolder, String baseFileName) {
+        File outputFile = new File(outputFolder, baseFileName);
+        
+        if (!outputFile.exists()) {
+            return outputFile;
+        }
+        
+        // Extract name and extension
+        String nameWithoutExt = baseFileName;
+        String extension = "";
+        int lastDot = baseFileName.lastIndexOf('.');
+        if (lastDot > 0) {
+            nameWithoutExt = baseFileName.substring(0, lastDot);
+            extension = baseFileName.substring(lastDot);
+        }
+        
+        // Try with suffix _1, _2, _3, etc.
+        int counter = 1;
+        while (outputFile.exists()) {
+            String uniqueName = String.format("%s_%d%s", nameWithoutExt, counter, extension);
+            outputFile = new File(outputFolder, uniqueName);
+            counter++;
+            
+            // Safety check to prevent infinite loop
+            if (counter > 9999) {
+                throw new RuntimeException("Could not generate unique filename after 9999 attempts");
+            }
+        }
+        
+        return outputFile;
+    }
+    
+    /**
      * TASK 2: Setup drag-to-select functionality for a page card.
      * Allows users to click and drag across pages to select/deselect multiple pages.
      */
     private void setupDragSelection(PageThumbnailCard card) {
-        // On mouse press: start drag, determine selection mode
+        // On mouse press: immediately toggle selection for single click
         card.setOnMousePressed(event -> {
             if (event.isPrimaryButtonDown()) {
-                isDragging = true;
-                // Determine mode: if clicking on unselected, we select; if clicking on selected, we deselect
+                isDragging = false; // Start as not dragging
+                // Determine mode based on current state
                 dragSelectionMode = !card.isSelected();
+                // Immediately apply selection for responsive single-click
                 card.setSelected(dragSelectionMode);
                 event.consume();
             }
         });
         
-        // On mouse drag entered: apply selection mode
+        // On drag detected: mark as dragging and start full drag
+        card.setOnDragDetected(event -> {
+            isDragging = true;
+            card.startFullDrag();
+            event.consume();
+        });
+        
+        // On mouse drag entered: apply selection mode (only if dragging)
         card.setOnMouseDragEntered(event -> {
             if (isDragging) {
                 card.setSelected(dragSelectionMode);
@@ -1611,16 +1690,10 @@ public class SplitControllerRedesigned {
         
         // On mouse release: end drag
         card.setOnMouseReleased(event -> {
-            if (isDragging) {
+            if (event.getButton().equals(javafx.scene.input.MouseButton.PRIMARY)) {
                 isDragging = false;
                 event.consume();
             }
-        });
-        
-        // Enable full press-drag-release detection
-        card.setOnDragDetected(event -> {
-            card.startFullDrag();
-            event.consume();
         });
     }
     

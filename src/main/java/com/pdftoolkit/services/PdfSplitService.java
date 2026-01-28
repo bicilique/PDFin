@@ -209,4 +209,69 @@ public class PdfSplitService {
         
         return outputFiles;
     }
+    
+    /**
+     * Extracts specific pages from a PDF and creates a SINGLE PDF containing all pages.
+     * Useful for extracting non-consecutive pages (e.g., pages 1, 3, 5, 7) into one file.
+     * 
+     * @param inputFile Source PDF file
+     * @param pageNumbers List of page numbers to extract (1-indexed, will be sorted automatically)
+     * @param outputFile The output file to create
+     * @return List containing the single created output file
+     * @throws IOException if PDF operations fail
+     */
+    public List<File> extractPagesAsSingleFile(File inputFile, List<Integer> pageNumbers, File outputFile) throws IOException {
+        if (inputFile == null || !inputFile.exists()) {
+            throw new IOException("Input file does not exist: " + inputFile);
+        }
+        
+        if (pageNumbers == null || pageNumbers.isEmpty()) {
+            throw new IllegalArgumentException("At least one page number is required");
+        }
+        
+        if (outputFile == null) {
+            throw new IllegalArgumentException("Output file cannot be null");
+        }
+        
+        // Ensure output directory exists
+        File outputDir = outputFile.getParentFile();
+        if (outputDir != null && !outputDir.exists()) {
+            outputDir.mkdirs();
+        }
+        
+        List<File> result = new ArrayList<>();
+        
+        try (PDDocument document = Loader.loadPDF(inputFile)) {
+            int totalPages = document.getNumberOfPages();
+            
+            // Validate page numbers
+            for (int pageNum : pageNumbers) {
+                if (pageNum < 1 || pageNum > totalPages) {
+                    throw new IllegalArgumentException(
+                        String.format("Page %d is out of bounds (total: %d)", pageNum, totalPages)
+                    );
+                }
+            }
+            
+            // Create new document with all requested pages
+            PDDocument outputDoc = new PDDocument();
+            
+            // Sort page numbers to maintain order
+            List<Integer> sortedPages = new ArrayList<>(pageNumbers);
+            sortedPages.sort(Integer::compareTo);
+            
+            // Add each page to the output document (PDFBox uses 0-based index)
+            for (int pageNum : sortedPages) {
+                outputDoc.addPage(document.getPage(pageNum - 1));
+            }
+            
+            // Save output file
+            outputDoc.save(outputFile);
+            outputDoc.close();
+            
+            result.add(outputFile);
+        }
+        
+        return result;
+    }
 }

@@ -751,9 +751,10 @@ public class ProtectController {
             progressOverlay.setVisible(true);
         }
         
-        // Disable inputs
+        // Don't manually disable buttons if they have bindings
+        // lockPdfButton has a binding, so don't call setDisable on it
+        // Only disable buttons without bindings
         selectFilesButton.setDisable(true);
-        lockPdfButton.setDisable(true);
         resetButton.setDisable(true);
     }
     
@@ -765,10 +766,10 @@ public class ProtectController {
             progressOverlay.setVisible(false);
         }
         
-        // Re-enable inputs
+        // Re-enable inputs (only those without bindings)
         selectFilesButton.setDisable(false);
         resetButton.setDisable(false);
-        // lockPdfButton re-enabled by binding
+        // lockPdfButton re-enabled by its binding automatically
     }
     
     /**
