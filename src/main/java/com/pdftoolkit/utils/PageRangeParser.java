@@ -63,7 +63,7 @@ public class PageRangeParser {
                         }
                     }
                 } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Invalid page number in range: " + part);
+                    throw new IllegalArgumentException("Invalid page number in range: " + part + " (must be a valid integer)");
                 }
             } else {
                 // Single page like "5"
@@ -82,7 +82,7 @@ public class PageRangeParser {
                         pages.add(page);
                     }
                 } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Invalid page number: " + part);
+                    throw new IllegalArgumentException("Invalid page number: " + part + " (must be a valid integer)");
                 }
             }
         }

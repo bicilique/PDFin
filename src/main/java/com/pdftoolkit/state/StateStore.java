@@ -5,11 +5,9 @@ package com.pdftoolkit.state;
  * This ensures that state (like selected files) persists across language switches,
  * theme changes, or navigation changes that rebuild views.
  * 
- * Thread-safe singleton pattern.
+ * Thread-safe singleton pattern using Bill Pugh initialization-on-demand holder idiom.
  */
 public class StateStore {
-    
-    private static volatile StateStore instance;
     
     private final CompressPdfState compressPdfState;
     
@@ -18,17 +16,17 @@ public class StateStore {
     }
     
     /**
-     * Get the singleton instance (thread-safe double-checked locking).
+     * Holder class for lazy initialization (thread-safe without synchronization).
+     */
+    private static class Holder {
+        private static final StateStore INSTANCE = new StateStore();
+    }
+    
+    /**
+     * Get the singleton instance (thread-safe, lazy initialization).
      */
     public static StateStore getInstance() {
-        if (instance == null) {
-            synchronized (StateStore.class) {
-                if (instance == null) {
-                    instance = new StateStore();
-                }
-            }
-        }
-        return instance;
+        return Holder.INSTANCE;
     }
     
     /**

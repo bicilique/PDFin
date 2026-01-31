@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
  * - Async metadata loading for responsive UI
  * - Proper validation with reactive bindings
  */
-public class CompressControllerRedesigned {
+public class CompressController {
 
     // Left Panel: File Staging Area (Following Protect Style)
     @FXML private StackPane emptyStatePane;  // Drop zone (large)

@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for SplitControllerRedesigned logic.
  * Tests state management, validation, file handling, and business logic.
  */
-class SplitControllerRedesignedTest {
+class SplitControllerTest {
 
     private List<File> testFiles;
     private Path tempDir;

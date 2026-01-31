@@ -86,71 +86,73 @@ public class CompressPdfService {
                     PDDocument outputDoc = new PDDocument();
                     PDFRenderer renderer = new PDFRenderer(inputDoc);
                     
-                    for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-                        if (isCancelled()) {
-                            outputDoc.close();
-                            return null;
-                        }
-                        
-                        updateMessage(String.format(
-                            "Compressing page %d of %d (%s, Quality: %.0f%%)", 
-                            pageIndex + 1, 
-                            totalPages,
-                            level.getDisplayName(),
-                            quality * 100
-                        ));
-                        updateProgress(pageIndex, totalPages);
-                        
-                        // Render page to image at specified DPI
-                        BufferedImage pageImage = renderer.renderImageWithDPI(
-                            pageIndex, 
-                            dpi, 
-                            ImageType.RGB
-                        );
-                        
-                        // Compress image using JPEG
-                        byte[] compressedImageBytes = compressImageToJpeg(pageImage, quality);
-                        
-                        // Get original page size
-                        PDPage originalPage = inputDoc.getPage(pageIndex);
-                        PDRectangle mediaBox = originalPage.getMediaBox();
-                        
-                        // Create new page with same dimensions
-                        PDPage newPage = new PDPage(mediaBox);
-                        outputDoc.addPage(newPage);
-                        
-                        // Create PDImageXObject from compressed JPEG data
-                        PDImageXObject pdImage = JPEGFactory.createFromByteArray(
-                            outputDoc, 
-                            compressedImageBytes
-                        );
-                        
-                        // Draw image to fill the entire page
-                        try (PDPageContentStream contentStream = new PDPageContentStream(
-                                outputDoc, 
-                                newPage, 
-                                PDPageContentStream.AppendMode.OVERWRITE, 
-                                false)) {
+                    try {
+                        for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                            if (isCancelled()) {
+                                return null;
+                            }
                             
-                            contentStream.drawImage(
-                                pdImage, 
-                                0, 
-                                0, 
-                                mediaBox.getWidth(), 
-                                mediaBox.getHeight()
+                            updateMessage(String.format(
+                                "Compressing page %d of %d (%s, Quality: %.0f%%)", 
+                                pageIndex + 1, 
+                                totalPages,
+                                level.getDisplayName(),
+                                quality * 100
+                            ));
+                            updateProgress(pageIndex, totalPages);
+                            
+                            // Render page to image at specified DPI
+                            BufferedImage pageImage = renderer.renderImageWithDPI(
+                                pageIndex, 
+                                dpi, 
+                                ImageType.RGB
                             );
+                            
+                            // Compress image using JPEG
+                            byte[] compressedImageBytes = compressImageToJpeg(pageImage, quality);
+                            
+                            // Get original page size
+                            PDPage originalPage = inputDoc.getPage(pageIndex);
+                            PDRectangle mediaBox = originalPage.getMediaBox();
+                            
+                            // Create new page with same dimensions
+                            PDPage newPage = new PDPage(mediaBox);
+                            outputDoc.addPage(newPage);
+                            
+                            // Create PDImageXObject from compressed JPEG data
+                            PDImageXObject pdImage = JPEGFactory.createFromByteArray(
+                                outputDoc, 
+                                compressedImageBytes
+                            );
+                            
+                            // Draw image to fill the entire page
+                            try (PDPageContentStream contentStream = new PDPageContentStream(
+                                    outputDoc, 
+                                    newPage, 
+                                    PDPageContentStream.AppendMode.OVERWRITE, 
+                                    false)) {
+                                
+                                contentStream.drawImage(
+                                    pdImage, 
+                                    0, 
+                                    0, 
+                                    mediaBox.getWidth(), 
+                                    mediaBox.getHeight()
+                                );
+                            }
                         }
+                        
+                        updateMessage("Writing compressed PDF...");
+                        updateProgress(totalPages, totalPages);
+                        
+                        // Ensure output directory exists
+                        Files.createDirectories(outputPath.getParent());
+                        
+                        // Save compressed PDF
+                        outputDoc.save(outputPath.toFile());
+                    } finally {
+                        outputDoc.close();
                     }
-                    
-                    updateMessage("Writing compressed PDF...");
-                    updateProgress(totalPages, totalPages);
-                    
-                    // Ensure output directory exists
-                    Files.createDirectories(outputPath.getParent());
-                    
-                    // Save compressed PDF
-                    outputDoc.save(outputPath.toFile());
-                    outputDoc.close();
                     
                     long inputSize = Files.size(inputPath);
                     long outputSize = Files.size(outputPath);
@@ -281,54 +283,57 @@ public class CompressPdfService {
             PDDocument outputDoc = new PDDocument();
             PDFRenderer renderer = new PDFRenderer(inputDoc);
             
-            for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-                // Render page to image at specified DPI
-                BufferedImage pageImage = renderer.renderImageWithDPI(
-                    pageIndex, 
-                    dpi, 
-                    ImageType.RGB
-                );
-                
-                // Compress image using JPEG
-                byte[] compressedImageBytes = compressImageToJpeg(pageImage, quality);
-                
-                // Get original page size
-                PDPage originalPage = inputDoc.getPage(pageIndex);
-                PDRectangle mediaBox = originalPage.getMediaBox();
-                
-                // Create new page with same dimensions
-                PDPage newPage = new PDPage(mediaBox);
-                outputDoc.addPage(newPage);
-                
-                // Create PDImageXObject from compressed JPEG data
-                PDImageXObject pdImage = JPEGFactory.createFromByteArray(
-                    outputDoc, 
-                    compressedImageBytes
-                );
-                
-                // Draw image to fill the entire page
-                try (PDPageContentStream contentStream = new PDPageContentStream(
-                        outputDoc, 
-                        newPage, 
-                        PDPageContentStream.AppendMode.OVERWRITE, 
-                        false)) {
-                    
-                    contentStream.drawImage(
-                        pdImage, 
-                        0, 
-                        0, 
-                        mediaBox.getWidth(), 
-                        mediaBox.getHeight()
+            try {
+                for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+                    // Render page to image at specified DPI
+                    BufferedImage pageImage = renderer.renderImageWithDPI(
+                        pageIndex, 
+                        dpi, 
+                        ImageType.RGB
                     );
+                    
+                    // Compress image using JPEG
+                    byte[] compressedImageBytes = compressImageToJpeg(pageImage, quality);
+                    
+                    // Get original page size
+                    PDPage originalPage = inputDoc.getPage(pageIndex);
+                    PDRectangle mediaBox = originalPage.getMediaBox();
+                    
+                    // Create new page with same dimensions
+                    PDPage newPage = new PDPage(mediaBox);
+                    outputDoc.addPage(newPage);
+                    
+                    // Create PDImageXObject from compressed JPEG data
+                    PDImageXObject pdImage = JPEGFactory.createFromByteArray(
+                        outputDoc, 
+                        compressedImageBytes
+                    );
+                    
+                    // Draw image to fill the entire page
+                    try (PDPageContentStream contentStream = new PDPageContentStream(
+                            outputDoc, 
+                            newPage, 
+                            PDPageContentStream.AppendMode.OVERWRITE, 
+                            false)) {
+                        
+                        contentStream.drawImage(
+                            pdImage, 
+                            0, 
+                            0, 
+                            mediaBox.getWidth(), 
+                            mediaBox.getHeight()
+                        );
+                    }
                 }
+                
+                // Ensure output directory exists
+                Files.createDirectories(outputPath.getParent());
+                
+                // Save compressed PDF
+                outputDoc.save(outputPath.toFile());
+            } finally {
+                outputDoc.close();
             }
-            
-            // Ensure output directory exists
-            Files.createDirectories(outputPath.getParent());
-            
-            // Save compressed PDF
-            outputDoc.save(outputPath.toFile());
-            outputDoc.close();
             
             return outputPath;
         }

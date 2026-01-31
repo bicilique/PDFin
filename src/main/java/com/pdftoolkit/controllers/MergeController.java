@@ -1,7 +1,6 @@
 package com.pdftoolkit.controllers;
 
 import com.pdftoolkit.models.PdfItem;
-import com.pdftoolkit.navigation.AppNavigator;
 import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfMergeService;
 import com.pdftoolkit.services.PdfPreviewService;
@@ -18,7 +17,6 @@ import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
@@ -26,8 +24,6 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,7 +41,7 @@ import java.util.stream.Collectors;
  * - Persistent state management
  * - Async metadata loading
  */
-public class MergeControllerRedesignedNew {
+public class MergeController {
 
     // LEFT PANE: Files Area
     @FXML private Button clearFilesButton;
@@ -723,8 +719,6 @@ public class MergeControllerRedesignedNew {
                 updateMessage(LocaleManager.getString("merge.progress.preparing"));
                 updateProgress(0, files.size() + 1);
                 
-                Thread.sleep(300);
-                
                 // Process each file
                 for (int i = 0; i < files.size(); i++) {
                     if (isCancelled()) {
@@ -738,7 +732,6 @@ public class MergeControllerRedesignedNew {
                         i + 1, files.size(), fileName
                     ));
                     updateProgress(i + 1, files.size() + 1);
-                    Thread.sleep(200);
                 }
                 
                 // Perform merge
@@ -747,7 +740,6 @@ public class MergeControllerRedesignedNew {
                 
                 updateMessage(LocaleManager.getString("merge.progress.writing"));
                 updateProgress(files.size() + 1, files.size() + 1);
-                Thread.sleep(200);
                 
                 updateMessage(LocaleManager.getString("merge.progress.complete"));
                 return finalOutputFile;

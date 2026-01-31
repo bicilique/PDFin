@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * requiring JavaFX initialization. UI-specific tests would need
  * TestFX or similar framework.
  */
-class CompressControllerRedesignedTest {
+class CompressControllerTest {
 
     private List<File> testFiles;
     private Path tempDir;

@@ -81,18 +81,21 @@ public class PdfSplitService {
             for (PageRange range : ranges) {
                 PDDocument rangeDoc = new PDDocument();
                 
-                // Copy pages for this range (PDFBox uses 0-based index)
-                for (int i = range.startPage() - 1; i < range.endPage(); i++) {
-                    rangeDoc.addPage(document.getPage(i));
+                try {
+                    // Copy pages for this range (PDFBox uses 0-based index)
+                    for (int i = range.startPage() - 1; i < range.endPage(); i++) {
+                        rangeDoc.addPage(document.getPage(i));
+                    }
+                    
+                    // Save output file
+                    String outputFileName = String.format("%s_range_%02d.pdf", baseFileName, rangeIndex++);
+                    File outputFile = new File(outputDir, outputFileName);
+                    rangeDoc.save(outputFile);
+                    
+                    outputFiles.add(outputFile);
+                } finally {
+                    rangeDoc.close();
                 }
-                
-                // Save output file
-                String outputFileName = String.format("%s_range_%02d.pdf", baseFileName, rangeIndex++);
-                File outputFile = new File(outputDir, outputFileName);
-                rangeDoc.save(outputFile);
-                rangeDoc.close();
-                
-                outputFiles.add(outputFile);
             }
         }
         
@@ -123,11 +126,14 @@ public class PdfSplitService {
             
             int pageNum = 1;
             for (PDDocument pageDoc : splitDocs) {
-                String outputFileName = String.format("%s_page_%03d.pdf", baseFileName, pageNum++);
-                File outputFile = new File(outputDir, outputFileName);
-                pageDoc.save(outputFile);
-                pageDoc.close();
-                outputFiles.add(outputFile);
+                try {
+                    String outputFileName = String.format("%s_page_%03d.pdf", baseFileName, pageNum++);
+                    File outputFile = new File(outputDir, outputFileName);
+                    pageDoc.save(outputFile);
+                    outputFiles.add(outputFile);
+                } finally {
+                    pageDoc.close();
+                }
             }
         }
         
@@ -194,16 +200,19 @@ public class PdfSplitService {
             for (int pageNum : pageNumbers) {
                 PDDocument pageDoc = new PDDocument();
                 
-                // Copy the specific page (PDFBox uses 0-based index)
-                pageDoc.addPage(document.getPage(pageNum - 1));
-                
-                // Save output file
-                String outputFileName = String.format("%s_page_%03d.pdf", baseFileName, pageNum);
-                File outputFile = new File(outputDir, outputFileName);
-                pageDoc.save(outputFile);
-                pageDoc.close();
-                
-                outputFiles.add(outputFile);
+                try {
+                    // Copy the specific page (PDFBox uses 0-based index)
+                    pageDoc.addPage(document.getPage(pageNum - 1));
+                    
+                    // Save output file
+                    String outputFileName = String.format("%s_page_%03d.pdf", baseFileName, pageNum);
+                    File outputFile = new File(outputDir, outputFileName);
+                    pageDoc.save(outputFile);
+                    
+                    outputFiles.add(outputFile);
+                } finally {
+                    pageDoc.close();
+                }
             }
         }
         
@@ -256,18 +265,21 @@ public class PdfSplitService {
             // Create new document with all requested pages
             PDDocument outputDoc = new PDDocument();
             
-            // Sort page numbers to maintain order
-            List<Integer> sortedPages = new ArrayList<>(pageNumbers);
-            sortedPages.sort(Integer::compareTo);
-            
-            // Add each page to the output document (PDFBox uses 0-based index)
-            for (int pageNum : sortedPages) {
-                outputDoc.addPage(document.getPage(pageNum - 1));
+            try {
+                // Sort page numbers to maintain order
+                List<Integer> sortedPages = new ArrayList<>(pageNumbers);
+                sortedPages.sort(Integer::compareTo);
+                
+                // Add each page to the output document (PDFBox uses 0-based index)
+                for (int pageNum : sortedPages) {
+                    outputDoc.addPage(document.getPage(pageNum - 1));
+                }
+                
+                // Save output file
+                outputDoc.save(outputFile);
+            } finally {
+                outputDoc.close();
             }
-            
-            // Save output file
-            outputDoc.save(outputFile);
-            outputDoc.close();
             
             result.add(outputFile);
         }

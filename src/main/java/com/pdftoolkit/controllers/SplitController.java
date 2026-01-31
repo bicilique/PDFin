@@ -23,7 +23,6 @@ import javafx.scene.image.Image;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
-import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
@@ -51,7 +50,7 @@ import java.util.stream.Collectors;
  * In "Split by Ranges" modes, page clicks only highlight/focus the page for visual reference.
  * The Range Editor remains independent of page preview interactions.
  */
-public class SplitControllerRedesigned {
+public class SplitController {
 
     // LEFT PANEL: File staging elements (following protect style)
     @FXML private StackPane dropZonePane;  // Large drop zone when empty

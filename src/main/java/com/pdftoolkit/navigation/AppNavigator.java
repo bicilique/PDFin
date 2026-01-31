@@ -21,11 +21,9 @@ public class AppNavigator {
 
     public enum View {
         HOME("/views/home.fxml"),
-        // MERGE("/views/merge.fxml"),
-        // SPLIT("/views/split.fxml"),
-        MERGE("/views/merge_redesigned_new.fxml"),
-        SPLIT("/views/split_redesigned.fxml"),
-        COMPRESS("/views/compress_redesigned.fxml"),
+        MERGE("/views/merge.fxml"),
+        SPLIT("/views/split.fxml"),
+        COMPRESS("/views/compress.fxml"),
         PROTECT("/views/protect.fxml");
 
         private final String fxmlPath;

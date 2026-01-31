@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for MergeControllerRedesignedNew logic.
  * Tests state management, validation, file handling, and business logic.
  */
-class MergeControllerRedesignedNewTest {
+class MergeControllerTest {
 
     private List<File> testFiles;
     private Path tempDir;
