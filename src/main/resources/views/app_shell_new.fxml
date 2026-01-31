@@ -39,6 +39,7 @@
                 
                 <!-- Actions Area -->
                 <HBox spacing="12" alignment="CENTER_RIGHT">
+
                     <!-- Language Selector -->
                     <MenuButton fx:id="languageButton" styleClass="header-action-button" 
                                 minWidth="44" minHeight="44">
@@ -58,6 +59,15 @@
                             <Label fx:id="themeIcon" text="🌙" styleClass="action-icon"/>
                         </graphic>
                     </Button>
+
+                    <!-- About Button -->
+                    <Button fx:id="aboutButton" styleClass="header-action-button" 
+                            minWidth="44" minHeight="44">
+                        <graphic>
+                            <Label text="ℹ" styleClass="action-icon"/>
+                        </graphic>
+                    </Button>
+                    
                 </HBox>
             </HBox>
             

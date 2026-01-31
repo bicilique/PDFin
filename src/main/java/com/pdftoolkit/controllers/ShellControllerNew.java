@@ -1,6 +1,7 @@
 package com.pdftoolkit.controllers;
 
 import com.pdftoolkit.navigation.AppNavigator;
+import com.pdftoolkit.ui.AboutDialog;
 import com.pdftoolkit.utils.LocaleManager;
 import com.pdftoolkit.utils.ThemeManager;
 import javafx.animation.ScaleTransition;
@@ -15,6 +16,7 @@ public class ShellControllerNew {
 
     // Header elements
     @FXML private Label headerSubtitle;
+    @FXML private Button aboutButton;
     @FXML private MenuButton languageButton;
     @FXML private MenuItem englishMenuItem;
     @FXML private MenuItem indonesianMenuItem;
@@ -40,6 +42,9 @@ public class ShellControllerNew {
 
     @FXML
     private void initialize() {
+        // Setup About button
+        setupAboutButton();
+        
         // Setup language menu
         setupLanguageMenu();
         
@@ -59,6 +64,14 @@ public class ShellControllerNew {
         
         // Set home as default active
         setActiveNav(homeButton);
+    }
+    
+    private void setupAboutButton() {
+        aboutButton.setTooltip(new Tooltip(LocaleManager.getString("about.tooltip")));
+        aboutButton.setOnAction(e -> {
+            animateButton(aboutButton);
+            AboutDialog.show();
+        });
     }
     
     private void setupLanguageMenu() {
