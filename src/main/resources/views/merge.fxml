@@ -4,104 +4,183 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<ScrollPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.pdftoolkit.controllers.MergeController"
-            fitToWidth="true" fitToHeight="true"
-            styleClass="content-scroll">
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.pdftoolkit.controllers.MergeControllerRedesignedNew"
+           styleClass="merge-pdf-root">
 
-<StackPane>
-
-    <VBox spacing="24" styleClass="tool-view">
-        <padding>
-            <Insets top="40" right="40" bottom="40" left="40"/>
-        </padding>
-
-        <!-- Header -->
-        <VBox spacing="8">
-            <Label fx:id="titleLabel" text="%merge.title" styleClass="page-title"/>
-            <Label fx:id="subtitleLabel" text="%merge.subtitle" styleClass="page-subtitle"/>
-        </VBox>
-
-        <!-- Step 1: Pilih Berkas -->
-        <VBox spacing="16" VBox.vgrow="ALWAYS">
-            <HBox alignment="CENTER_LEFT" spacing="12">
-                <Label fx:id="step1Label" text="%merge.step1" styleClass="step-title" HBox.hgrow="ALWAYS"/>
-                <Label fx:id="fileCountLabel" text="0 %merge.files" styleClass="text-muted"/>
-            </HBox>
+    <!-- Main Two-Pane Layout -->
+    <HBox styleClass="merge-pdf-container" spacing="0">
+        
+        <!-- LEFT PANE: File Staging Area -->
+        <VBox styleClass="files-pane" HBox.hgrow="ALWAYS">
+            <padding>
+                <Insets top="32" right="24" bottom="32" left="32"/>
+            </padding>
             
-            <VBox VBox.vgrow="ALWAYS" spacing="12">
-                <ListView fx:id="fileListView" VBox.vgrow="ALWAYS" minHeight="200" styleClass="file-list">
-                    <placeholder>
-                        <VBox alignment="CENTER" spacing="12" style="-fx-padding: 48px;">
-                            <Label text="📄" style="-fx-font-size: 48px;"/>
-                            <Label fx:id="emptyStateLabel" text="%merge.dropHint" styleClass="empty-state"/>
-                            <Label fx:id="hintLabel" text="%merge.dropHintOr" styleClass="hint-label"/>
-                        </VBox>
-                    </placeholder>
-                </ListView>
-            </VBox>
-            
-            <HBox spacing="12">
-                <Button fx:id="addButton" text="%merge.addFiles" styleClass="secondary-button" onAction="#handleBrowse"/>
-                <Button fx:id="removeButton" text="%merge.remove" styleClass="secondary-button" onAction="#handleRemoveSelected"/>
+            <!-- Files Pane Header -->
+            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="files-header">
+                <Label text="%merge.filesPane.title" styleClass="pane-title"/>
                 <Region HBox.hgrow="ALWAYS"/>
-                <Button fx:id="moveUpButton" text="%merge.moveUp" styleClass="secondary-button" onAction="#handleMoveUp"/>
-                <Button fx:id="moveDownButton" text="%merge.moveDown" styleClass="secondary-button" onAction="#handleMoveDown"/>
+                <Button fx:id="clearFilesButton" text="%merge.clearAll" styleClass="text-button" 
+                        onAction="#clearFiles" visible="false" managed="false"/>
             </HBox>
-        </VBox>
-
-        <Separator/>
-
-        <!-- Step 2: Opsi Output -->
-        <VBox spacing="16">
-            <Label fx:id="step2Label" text="%merge.step2" styleClass="step-title"/>
             
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label fx:id="outputFolderLabel" text="%merge.outputFolder" minWidth="120" styleClass="field-label"/>
-                <TextField fx:id="outputFolderField" HBox.hgrow="ALWAYS" editable="false" 
-                           promptText="%merge.chooseDestination" styleClass="field-input"/>
-                <Button fx:id="chooseFolderButton" text="%merge.chooseFolder" styleClass="secondary-button" onAction="#handleOutputBrowse"/>
+            <VBox.margin>
+                <Insets bottom="20"/>
+            </VBox.margin>
+            
+            <!-- Drop Zone (Shown when empty) -->
+            <StackPane fx:id="dropZonePane" styleClass="drop-zone-large" VBox.vgrow="ALWAYS">
+                <VBox alignment="CENTER" spacing="20">
+                    <Label text="📄" styleClass="drop-zone-icon-large"/>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="%merge.dropZone.title" styleClass="drop-zone-title"/>
+                        <Label text="%merge.dropZone.subtitle" styleClass="drop-zone-subtitle"/>
+                    </VBox>
+                    <Button fx:id="selectFilesButton" text="%merge.selectFiles" styleClass="primary-button" 
+                            onAction="#selectFiles"/>
+                    <Label text="%merge.dropZone.formats" styleClass="drop-zone-hint"/>
+                </VBox>
+            </StackPane>
+            
+            <!-- Files Grid (Shown when files selected) -->
+            <ScrollPane fx:id="filesScrollPane" fitToWidth="true" fitToHeight="true" 
+                        styleClass="files-scroll" visible="false" managed="false" VBox.vgrow="ALWAYS">
+                <VBox fx:id="filesContainer" spacing="12" styleClass="files-grid">
+                    <!-- File cards will be added dynamically -->
+                </VBox>
+            </ScrollPane>
+            
+            <!-- Floating Add Files Button (Shown when files exist) -->
+            <HBox fx:id="addFilesToolbar" alignment="CENTER_LEFT" spacing="12" 
+                  styleClass="add-files-toolbar" visible="false" managed="false">
+                <VBox.margin>
+                    <Insets top="16"/>
+                </VBox.margin>
+                <Button fx:id="addMoreFilesButton" text="%merge.addMoreFiles" styleClass="secondary-button" 
+                        onAction="#selectFiles"/>
+                <Label fx:id="filesCountLabel" text="" styleClass="files-count-label"/>
             </HBox>
-
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label fx:id="filenameLabel" text="%merge.filename" minWidth="120" styleClass="field-label"/>
-                <TextField fx:id="outputFilenameField" HBox.hgrow="ALWAYS" 
-                           promptText="%merge.defaultFilename" text="%merge.defaultFilename" styleClass="field-input"/>
-            </HBox>
+            
         </VBox>
-
-        <!-- Footer Actions -->
-        <HBox spacing="12" alignment="CENTER" styleClass="footer-actions">
-            <Button fx:id="backButton" text="%app.back" styleClass="secondary-button" onAction="#handleCancel"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="processButton" text="%merge.mergeNow" styleClass="primary-button" 
-                    defaultButton="true" onAction="#handleExecute" disable="true"/>
-        </HBox>
-    </VBox>
-
+        
+        <!-- RIGHT PANE: Settings Panel -->
+        <VBox styleClass="settings-pane">
+            <padding>
+                <Insets top="32" right="32" bottom="32" left="24"/>
+            </padding>
+            
+            <ScrollPane fitToWidth="true" fitToHeight="true" styleClass="settings-scroll" VBox.vgrow="ALWAYS">
+                <VBox spacing="28">
+                    
+                    <!-- Settings Header -->
+                    <VBox spacing="8">
+                        <Label text="%merge.settings.title" styleClass="settings-title"/>
+                        <Label text="%merge.settings.subtitle" styleClass="settings-subtitle" wrapText="true"/>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Summary Section -->
+                    <VBox spacing="16" styleClass="settings-section">
+                        <Label text="%merge.summary" styleClass="section-title"/>
+                        
+                        <VBox styleClass="summary-box" spacing="12">
+                            <HBox spacing="12" alignment="CENTER_LEFT">
+                                <Label text="📄" style="-fx-font-size: 20px;"/>
+                                <VBox spacing="2">
+                                    <Label text="%merge.summary.pages" styleClass="summary-label"/>
+                                    <Label fx:id="totalPagesLabel" text="0 pages" styleClass="summary-value"/>
+                                </VBox>
+                            </HBox>
+                            
+                            <Separator/>
+                            
+                            <HBox spacing="12" alignment="CENTER_LEFT">
+                                <Label text="💾" style="-fx-font-size: 20px;"/>
+                                <VBox spacing="2">
+                                    <Label text="%merge.summary.size" styleClass="summary-label"/>
+                                    <Label fx:id="totalSizeLabel" text="0 B" styleClass="summary-value"/>
+                                </VBox>
+                            </HBox>
+                        </VBox>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Output Settings Section -->
+                    <VBox spacing="16" styleClass="settings-section">
+                        <Label text="%merge.output.title" styleClass="section-title"/>
+                        
+                        <!-- Output Folder -->
+                        <VBox spacing="6">
+                            <Label text="%merge.output.folder" styleClass="field-label"/>
+                            <HBox spacing="8">
+                                <TextField fx:id="outputFolderField" editable="false" 
+                                           promptText="%merge.output.folderPlaceholder" 
+                                           styleClass="field-input-large" HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="browseFolderButton" text="%merge.output.browse" 
+                                        styleClass="secondary-button" onAction="#browseFolderButton"/>
+                            </HBox>
+                        </VBox>
+                        
+                        <!-- Output Filename -->
+                        <VBox spacing="6">
+                            <Label text="%merge.output.filename" styleClass="field-label"/>
+                            <TextField fx:id="outputFilenameField" promptText="merged.pdf" 
+                                       styleClass="field-input-large"/>
+                            <Label text="%merge.output.filenameHint" styleClass="hint-text-small" wrapText="true"/>
+                        </VBox>
+                    </VBox>
+                    
+                    <Separator styleClass="settings-separator"/>
+                    
+                    <!-- Action Buttons -->
+                    <VBox spacing="12" styleClass="action-buttons">
+                        <Button fx:id="mergeButton" text="%merge.action.merge" 
+                                styleClass="primary-button-large" defaultButton="true" 
+                                maxWidth="Infinity" onAction="#handleMerge"/>
+                        <Button fx:id="resetButton" text="%merge.action.reset" 
+                                styleClass="secondary-button-large" maxWidth="Infinity" 
+                                onAction="#handleReset"/>
+                    </VBox>
+                    
+                </VBox>
+            </ScrollPane>
+            
+        </VBox>
+        
+    </HBox>
+    
     <!-- Progress Overlay -->
+    <!-- Progress Overlay (unified with success pane like Split/Compress) -->
     <StackPane fx:id="progressOverlay" styleClass="progress-overlay" visible="false" managed="false">
-        <VBox alignment="CENTER" spacing="32" styleClass="progress-card">
+        <VBox alignment="CENTER" spacing="24" styleClass="progress-card" maxWidth="480" maxHeight="400">
             <VBox alignment="CENTER" spacing="16">
-                <Label fx:id="progressTitle" text="%merge.processing" styleClass="progress-title"/>
-                <ProgressBar fx:id="progressBar" prefWidth="400" styleClass="progress-bar" progress="-1"/>
-                <Label fx:id="progressMessage" text="%progress.processing" styleClass="progress-message"/>
+                <Label fx:id="progressTitle" text="%merge.progress.title" styleClass="progress-title"/>
+                <ProgressBar fx:id="progressBar" prefWidth="360" styleClass="progress-bar" progress="-1"/>
+                <Label fx:id="progressMessage" text="%merge.progress.processing" styleClass="progress-message" wrapText="true" textAlignment="CENTER"/>
             </VBox>
             
-            <Button fx:id="cancelProcessButton" text="%app.cancel" styleClass="secondary-button" onAction="#handleCancelProcess"/>
+            <Button fx:id="cancelProcessButton" text="%app.cancel" styleClass="secondary-button" 
+                   onAction="#handleCancelProcess"/>
             
-            <!-- Success Pane (Initially Hidden) -->
-            <VBox fx:id="successPane" alignment="CENTER" spacing="20" visible="false" managed="false">
-                <Label text="✓" styleClass="success-icon"/>
-                <Label fx:id="successMessage" text="%merge.success" 
-                       styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="400"/>
-                <HBox spacing="16" alignment="CENTER">
-                    <Button fx:id="openFolderButton" text="%merge.openFolder" styleClass="secondary-button" onAction="#handleOpenFolder"/>
-                    <Button fx:id="processAnotherButton" text="%merge.processAnother" styleClass="primary-button" onAction="#handleProcessAnother"/>
+            <!-- Success Pane (Initially Hidden, nested inside progress overlay) -->
+            <VBox fx:id="successPane" alignment="CENTER" spacing="16" visible="false" managed="false">
+                <Label text="✓" styleClass="success-icon" style="-fx-font-size: 40px;"/>
+                <Label fx:id="successMessage" text="%merge.success.title" 
+                      styleClass="success-message" wrapText="true" textAlignment="CENTER" maxWidth="360"/>
+                <HBox spacing="12" alignment="CENTER">
+                    <Button fx:id="openFolderButton" text="%merge.success.openFolder" 
+                           styleClass="secondary-button" onAction="#handleOpenFolder"/>
+                    <Button fx:id="mergeAnotherButton" text="%merge.success.mergeAnother" 
+                           styleClass="primary-button" onAction="#handleMergeAnother"/>
+                    <Button fx:id="closeSuccessButton" text="%app.close" 
+                           styleClass="secondary-button" onAction="#handleCloseSuccess"/>
                 </HBox>
             </VBox>
         </VBox>
     </StackPane>
+    
 </StackPane>
-</ScrollPane>

@@ -1,39 +1,72 @@
 package com.pdftoolkit.controllers;
 
+import com.pdftoolkit.models.PdfItem;
 import com.pdftoolkit.navigation.AppNavigator;
-import com.pdftoolkit.operations.stub.StubMergeOperation;
-import com.pdftoolkit.ui.Icons;
+import com.pdftoolkit.navigation.AppState;
+import com.pdftoolkit.services.PdfMergeService;
+import com.pdftoolkit.services.PdfPreviewService;
+import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
-import javafx.scene.input.DragEvent;
-import javafx.scene.input.Dragboard;
-import javafx.scene.input.TransferMode;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.*;
+import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
-import java.awt.Desktop;
 import java.io.File;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class MergeController {
+/**
+ * Redesigned Merge PDF Controller following the Protect feature's style.
+ * Two-pane layout with improved file input UX:
+ * - LEFT: File staging area with drag-drop and file cards
+ * - RIGHT: Settings panel with output options and merge action
+ * 
+ * Key improvements:
+ * - File cards instead of ListView for better visual hierarchy
+ * - Large drop zone when empty
+ * - Smooth transitions between empty and populated states
+ * - Drag & drop support for both adding and reordering files
+ * - Persistent state management
+ * - Async metadata loading
+ */
+public class MergeControllerRedesignedNew {
 
-    @FXML private ListView<File> fileListView;
-    @FXML private Label fileCountLabel;
-    @FXML private TextField outputFolderField;
-    @FXML private TextField outputFilenameField;
-    @FXML private Button processButton;
+    // LEFT PANE: Files Area
+    @FXML private Button clearFilesButton;
+    @FXML private StackPane dropZonePane;
+    @FXML private Button selectFilesButton;
+    @FXML private ScrollPane filesScrollPane;
+    @FXML private VBox filesContainer;
+    @FXML private HBox addFilesToolbar;
+    @FXML private Button addMoreFilesButton;
+    @FXML private Label filesCountLabel;
     
-    // Progress overlay elements
+    // RIGHT PANE: Settings
+    @FXML private Label totalPagesLabel;
+    @FXML private Label totalSizeLabel;
+    @FXML private TextField outputFolderField;
+    @FXML private Button browseFolderButton;
+    @FXML private TextField outputFilenameField;
+    @FXML private Button mergeButton;
+    @FXML private Button resetButton;
+    
+    // OVERLAYS (unified like Split/Compress)
     @FXML private StackPane progressOverlay;
     @FXML private Label progressTitle;
     @FXML private ProgressBar progressBar;
@@ -42,318 +75,840 @@ public class MergeController {
     @FXML private VBox successPane;
     @FXML private Label successMessage;
     @FXML private Button openFolderButton;
-    @FXML private Button processAnotherButton;
-
-    private final ObservableList<File> files = FXCollections.observableArrayList();
-    private final StubMergeOperation operation = new StubMergeOperation();
-    private Task<File> currentTask;
+    @FXML private Button mergeAnotherButton;
+    @FXML private Button closeSuccessButton;
+    
+    // Data and Services
+    private final ObservableList<PdfItem> selectedFiles = FXCollections.observableArrayList();
+    private final PdfMergeService mergeService = new PdfMergeService();
+    private final PdfPreviewService previewService = PdfPreviewService.getInstance();
+    private final AppState.MergeToolState state = AppState.getInstance().getMergeToolState();
+    
+    private Task<File> mergeTask;
     private File lastOutputFile;
+    private int draggedIndex = -1;
 
     @FXML
-    private void initialize() {
-        fileListView.setItems(files);
-        fileListView.setCellFactory(lv -> new FileListCell());
+    public void initialize() {
+        setupOutputFolder();
+        setupDragAndDrop();
+        setupValidationBinding();
+        setupFileListListeners();
+        updateFilesView();
         
-        // Update file count label and process button state
-        files.addListener((javafx.collections.ListChangeListener.Change<? extends File> c) -> {
-            if (fileCountLabel != null) {
-                fileCountLabel.setText(files.size() + " berkas");
-            }
-            if (processButton != null) {
-                processButton.setDisable(files.size() < 2);
-            }
-        });
-        
-        // Initialize count and button state
-        if (fileCountLabel != null) {
-            fileCountLabel.setText("0 berkas");
-        }
-        if (processButton != null) {
-            processButton.setDisable(true);
+        // Hide overlays initially
+        if (progressOverlay != null) {
+            progressOverlay.setVisible(false);
+            progressOverlay.setManaged(false);
         }
         
-        // Setup locale listener for live language switching
-        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> {
-            updateTexts();
-        });
+        // Setup locale change listener
+        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> updateTexts());
         
         // Initial text update
         updateTexts();
     }
     
-    private void updateTexts() {
-        // Update file count display
-        if (fileCountLabel != null) {
-            int count = files.size();
-            fileCountLabel.setText(count + " " + LocaleManager.getString("merge.files"));
+    /**
+     * Setup output folder with defaults.
+     */
+    private void setupOutputFolder() {
+        if (state.getOutputFolder() == null || state.getOutputFolder().isEmpty()) {
+            state.setOutputFolder(AppPaths.getDefaultOutputPath());
         }
-    }
-
-    @FXML
-    private void handleBrowse() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Pilih Berkas PDF");
-        fileChooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
-        );
+        if (state.getOutputFilename() == null || state.getOutputFilename().isEmpty()) {
+            state.setOutputFilename("merged.pdf");
+        }
         
-        List<File> selectedFiles = fileChooser.showOpenMultipleDialog(
-            fileListView.getScene().getWindow()
-        );
+        outputFolderField.setText(state.getOutputFolder());
+        outputFilenameField.setText(state.getOutputFilename());
         
-        if (selectedFiles != null && !selectedFiles.isEmpty()) {
-            files.addAll(selectedFiles);
-        }
+        // Bind to state
+        outputFolderField.textProperty().addListener((obs, oldVal, newVal) -> 
+            state.setOutputFolder(newVal));
+        outputFilenameField.textProperty().addListener((obs, oldVal, newVal) -> 
+            state.setOutputFilename(newVal));
     }
-
-    @FXML
-    private void handleRemoveSelected() {
-        File selected = fileListView.getSelectionModel().getSelectedItem();
-        if (selected != null) {
-            files.remove(selected);
-        }
-    }
-
-    @FXML
-    private void handleMoveUp() {
-        int index = fileListView.getSelectionModel().getSelectedIndex();
-        if (index > 0) {
-            File file = files.remove(index);
-            files.add(index - 1, file);
-            fileListView.getSelectionModel().select(index - 1);
-        }
-    }
-
-    @FXML
-    private void handleMoveDown() {
-        int index = fileListView.getSelectionModel().getSelectedIndex();
-        if (index >= 0 && index < files.size() - 1) {
-            File file = files.remove(index);
-            files.add(index + 1, file);
-            fileListView.getSelectionModel().select(index + 1);
-        }
-    }
-
-    @FXML
-    private void handleOutputBrowse() {
-        DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle("Pilih Folder Output");
+    
+    /**
+     * Setup drag and drop for file input.
+     */
+    private void setupDragAndDrop() {
+        // Drop zone drag and drop
+        dropZonePane.setOnDragOver(this::handleDragOver);
+        dropZonePane.setOnDragDropped(this::handleDragDropped);
         
-        File selectedDir = chooser.showDialog(fileListView.getScene().getWindow());
-        if (selectedDir != null && outputFolderField != null) {
-            outputFolderField.setText(selectedDir.getAbsolutePath());
-        }
+        // Files container drag and drop
+        filesScrollPane.setOnDragOver(this::handleDragOver);
+        filesScrollPane.setOnDragDropped(this::handleDragDropped);
     }
-
-    @FXML
+    
     private void handleDragOver(DragEvent event) {
-        Dragboard db = event.getDragboard();
-        if (db.hasFiles()) {
-            List<File> pdfFiles = db.getFiles().stream()
+        if (event.getDragboard().hasFiles()) {
+            List<File> pdfFiles = event.getDragboard().getFiles().stream()
                 .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
                 .collect(Collectors.toList());
             if (!pdfFiles.isEmpty()) {
                 event.acceptTransferModes(TransferMode.COPY);
+                
+                // Add visual feedback
+                if (!dropZonePane.getStyleClass().contains("drag-over")) {
+                    dropZonePane.getStyleClass().add("drag-over");
+                }
             }
         }
         event.consume();
     }
-
-    @FXML
+    
     private void handleDragDropped(DragEvent event) {
-        Dragboard db = event.getDragboard();
+        // Remove visual feedback
+        dropZonePane.getStyleClass().remove("drag-over");
+        
         boolean success = false;
-        if (db.hasFiles()) {
-            List<File> pdfFiles = db.getFiles().stream()
+        if (event.getDragboard().hasFiles()) {
+            List<File> pdfFiles = event.getDragboard().getFiles().stream()
                 .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
                 .collect(Collectors.toList());
-            files.addAll(pdfFiles);
-            success = true;
+            
+            if (!pdfFiles.isEmpty()) {
+                // Filter duplicates
+                List<File> newFiles = pdfFiles.stream()
+                    .filter(f -> selectedFiles.stream()
+                        .noneMatch(item -> item.getPath().toFile().getAbsolutePath()
+                            .equals(f.getAbsolutePath())))
+                    .collect(Collectors.toList());
+                
+                for (File file : newFiles) {
+                    addPdfFile(file);
+                }
+                
+                success = !newFiles.isEmpty();
+                
+                // Show feedback for duplicates
+                if (newFiles.size() < pdfFiles.size()) {
+                    showInfo(String.format(
+                        LocaleManager.getString("merge.duplicatesIgnored"),
+                        pdfFiles.size() - newFiles.size()
+                    ));
+                }
+            }
         }
+        
         event.setDropCompleted(success);
         event.consume();
     }
-
+    
+    /**
+     * Setup validation binding for merge button.
+     */
+    private void setupValidationBinding() {
+        BooleanBinding shouldDisable = Bindings.createBooleanBinding(
+            () -> {
+                // Need at least 2 files
+                if (selectedFiles.size() < 2) {
+                    return true;
+                }
+                
+                // Check if any file is loading
+                if (selectedFiles.stream().anyMatch(PdfItem::isLoading)) {
+                    return true;
+                }
+                
+                // Check if any file has error
+                if (selectedFiles.stream().anyMatch(PdfItem::hasError)) {
+                    return true;
+                }
+                
+                // Check output folder
+                String folder = outputFolderField.getText();
+                if (folder == null || folder.trim().isEmpty()) {
+                    return true;
+                }
+                
+                // Check output filename
+                String filename = outputFilenameField.getText();
+                if (filename == null || filename.trim().isEmpty()) {
+                    return true;
+                }
+                
+                return false;
+            },
+            selectedFiles,
+            outputFolderField.textProperty(),
+            outputFilenameField.textProperty()
+        );
+        
+        mergeButton.disableProperty().bind(shouldDisable);
+        
+        // Listen to item property changes
+        selectedFiles.addListener((ListChangeListener<PdfItem>) change -> {
+            while (change.next()) {
+                if (change.wasAdded()) {
+                    for (PdfItem item : change.getAddedSubList()) {
+                        item.loadingProperty().addListener((obs, oldVal, newVal) -> 
+                            shouldDisable.invalidate());
+                        item.errorProperty().addListener((obs, oldVal, newVal) -> 
+                            shouldDisable.invalidate());
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Setup file list change listeners.
+     */
+    private void setupFileListListeners() {
+        selectedFiles.addListener((ListChangeListener<PdfItem>) change -> {
+            updateFilesView();
+            updateSummary();
+        });
+    }
+    
+    /**
+     * Update UI texts for localization.
+     */
+    private void updateTexts() {
+        updateSummary();
+        updateFilesCountLabel();
+    }
+    
+    /**
+     * Update files view - toggle between empty state and file cards.
+     */
+    private void updateFilesView() {
+        boolean isEmpty = selectedFiles.isEmpty();
+        
+        // Toggle visibility
+        dropZonePane.setVisible(isEmpty);
+        dropZonePane.setManaged(isEmpty);
+        filesScrollPane.setVisible(!isEmpty);
+        filesScrollPane.setManaged(!isEmpty);
+        addFilesToolbar.setVisible(!isEmpty);
+        addFilesToolbar.setManaged(!isEmpty);
+        clearFilesButton.setVisible(!isEmpty);
+        clearFilesButton.setManaged(!isEmpty);
+        
+        if (!isEmpty) {
+            renderFileCards();
+            updateFilesCountLabel();
+        }
+    }
+    
+    /**
+     * Render file cards in the container.
+     */
+    private void renderFileCards() {
+        filesContainer.getChildren().clear();
+        
+        for (int i = 0; i < selectedFiles.size(); i++) {
+            PdfItem item = selectedFiles.get(i);
+            VBox card = createFileCard(item, i);
+            filesContainer.getChildren().add(card);
+        }
+    }
+    
+    /**
+     * Create a file card UI component.
+     */
+    private VBox createFileCard(PdfItem item, int index) {
+        VBox card = new VBox(12);
+        card.getStyleClass().add("file-card");
+        card.setPadding(new Insets(16));
+        
+        // Top row: thumbnail, info, and remove button
+        HBox topRow = new HBox(12);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+        
+        // Thumbnail
+        StackPane thumbnailContainer = new StackPane();
+        thumbnailContainer.getStyleClass().add("file-card-thumbnail");
+        thumbnailContainer.setPrefSize(60, 80);
+        thumbnailContainer.setMinSize(60, 80);
+        thumbnailContainer.setMaxSize(60, 80);
+        
+        if (item.isLoading()) {
+            ProgressIndicator spinner = new ProgressIndicator();
+            spinner.setPrefSize(30, 30);
+            thumbnailContainer.getChildren().add(spinner);
+        } else if (item.getThumbnail() != null) {
+            ImageView thumbnail = new ImageView(item.getThumbnail());
+            thumbnail.setFitWidth(60);
+            thumbnail.setFitHeight(80);
+            thumbnail.setPreserveRatio(true);
+            thumbnailContainer.getChildren().add(thumbnail);
+        } else {
+            Label placeholder = new Label("📄");
+            placeholder.setStyle("-fx-font-size: 32px;");
+            thumbnailContainer.getChildren().add(placeholder);
+        }
+        
+        // File info
+        VBox infoBox = new VBox(4);
+        infoBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(infoBox, Priority.ALWAYS);
+        
+        Label fileNameLabel = new Label(item.getFileName());
+        fileNameLabel.getStyleClass().add("file-card-name");
+        fileNameLabel.setWrapText(false);
+        fileNameLabel.setMaxWidth(Double.MAX_VALUE);
+        
+        HBox detailsRow = new HBox(12);
+        detailsRow.setAlignment(Pos.CENTER_LEFT);
+        
+        if (item.getPageCount() > 0) {
+            Label pagesLabel = new Label(item.getPageCount() + " " + 
+                LocaleManager.getString("common.pages"));
+            pagesLabel.getStyleClass().add("file-card-detail");
+            detailsRow.getChildren().add(pagesLabel);
+        }
+        
+        if (item.getFileSizeBytes() > 0) {
+            Label sizeLabel = new Label(formatFileSize(item.getFileSizeBytes()));
+            sizeLabel.getStyleClass().add("file-card-detail");
+            detailsRow.getChildren().add(sizeLabel);
+        }
+        
+        infoBox.getChildren().addAll(fileNameLabel, detailsRow);
+        
+        // Error label if present
+        if (item.hasError()) {
+            Label errorLabel = new Label("⚠ " + item.getError());
+            errorLabel.getStyleClass().add("file-card-error");
+            errorLabel.setWrapText(true);
+            infoBox.getChildren().add(errorLabel);
+        }
+        
+        // Action buttons
+        HBox actions = new HBox(8);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        
+        // Move up button
+        if (index > 0) {
+            Button moveUpBtn = new Button("↑");
+            moveUpBtn.getStyleClass().add("file-card-action-btn");
+            moveUpBtn.setOnAction(e -> moveFileUp(index));
+            actions.getChildren().add(moveUpBtn);
+        }
+        
+        // Move down button
+        if (index < selectedFiles.size() - 1) {
+            Button moveDownBtn = new Button("↓");
+            moveDownBtn.getStyleClass().add("file-card-action-btn");
+            moveDownBtn.setOnAction(e -> moveFileDown(index));
+            actions.getChildren().add(moveDownBtn);
+        }
+        
+        // Remove button
+        Button removeBtn = new Button("✕");
+        removeBtn.getStyleClass().add("file-card-remove-btn");
+        removeBtn.setOnAction(e -> removeFile(item));
+        actions.getChildren().add(removeBtn);
+        
+        topRow.getChildren().addAll(thumbnailContainer, infoBox, actions);
+        card.getChildren().add(topRow);
+        
+        // Setup drag-and-drop for reordering
+        setupCardDragAndDrop(card, index);
+        
+        return card;
+    }
+    
+    /**
+     * Setup drag-and-drop handlers for a file card to enable reordering.
+     */
+    private void setupCardDragAndDrop(VBox card, int cardIndex) {
+        // Make card draggable
+        card.setOnDragDetected(event -> {
+            if (selectedFiles.size() <= 1) return; // No point dragging single item
+            
+            Dragboard db = card.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.putString(String.valueOf(cardIndex));
+            db.setContent(content);
+            
+            draggedIndex = cardIndex;
+            card.setOpacity(0.5);
+            event.consume();
+        });
+        
+        card.setOnDragOver(event -> {
+            if (event.getGestureSource() != card && event.getDragboard().hasString()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+            event.consume();
+        });
+        
+        card.setOnDragEntered(event -> {
+            if (event.getGestureSource() != card && event.getDragboard().hasString()) {
+                card.setStyle("-fx-border-color: #0969da; -fx-border-width: 2px;");
+            }
+            event.consume();
+        });
+        
+        card.setOnDragExited(event -> {
+            card.setStyle("");
+            event.consume();
+        });
+        
+        card.setOnDragDropped(event -> {
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            
+            if (db.hasString() && draggedIndex >= 0 && draggedIndex != cardIndex) {
+                // Reorder items
+                PdfItem draggedItem = selectedFiles.remove(draggedIndex);
+                
+                // Adjust target index if needed
+                int targetIndex = cardIndex;
+                if (draggedIndex < cardIndex) {
+                    targetIndex--;
+                }
+                
+                selectedFiles.add(targetIndex, draggedItem);
+                renderFileCards();
+                success = true;
+            }
+            
+            event.setDropCompleted(success);
+            event.consume();
+        });
+        
+        card.setOnDragDone(event -> {
+            card.setOpacity(1.0);
+            card.setStyle("");
+            draggedIndex = -1;
+            event.consume();
+        });
+    }
+    
+    /**
+     * Update files count label.
+     */
+    private void updateFilesCountLabel() {
+        int count = selectedFiles.size();
+        if (count == 0) {
+            filesCountLabel.setText(LocaleManager.getString("merge.noFiles"));
+        } else if (count == 1) {
+            filesCountLabel.setText("1 " + LocaleManager.getString("merge.file"));
+        } else {
+            filesCountLabel.setText(count + " " + LocaleManager.getString("merge.files"));
+        }
+    }
+    
+    /**
+     * Update summary (total pages and size).
+     */
+    private void updateSummary() {
+        int totalPages = selectedFiles.stream()
+            .mapToInt(PdfItem::getPageCount)
+            .sum();
+        
+        long totalBytes = selectedFiles.stream()
+            .mapToLong(PdfItem::getFileSizeBytes)
+            .sum();
+        
+        totalPagesLabel.setText(totalPages + " " + LocaleManager.getString("common.pages"));
+        totalSizeLabel.setText(formatFileSize(totalBytes));
+    }
+    
+    /**
+     * Format file size in human-readable format.
+     */
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
+    }
+    
+    /**
+     * Add a PDF file to the list.
+     */
+    private void addPdfFile(File file) {
+        PdfItem item = new PdfItem(file.toPath());
+        item.setLoading(true);
+        selectedFiles.add(item);
+        
+        // Load metadata asynchronously
+        previewService.loadMetadataAsync(item).thenRun(() -> {
+            // Re-render file cards and update summary when thumbnail is loaded
+            Platform.runLater(() -> {
+                renderFileCards();
+                updateSummary();
+            });
+        });
+    }
+    
+    /**
+     * Remove a file from the list.
+     */
+    private void removeFile(PdfItem item) {
+        selectedFiles.remove(item);
+    }
+    
+    /**
+     * Move file up in the list.
+     */
+    private void moveFileUp(int index) {
+        if (index > 0) {
+            PdfItem item = selectedFiles.remove(index);
+            selectedFiles.add(index - 1, item);
+            renderFileCards();
+        }
+    }
+    
+    /**
+     * Move file down in the list.
+     */
+    private void moveFileDown(int index) {
+        if (index < selectedFiles.size() - 1) {
+            PdfItem item = selectedFiles.remove(index);
+            selectedFiles.add(index + 1, item);
+            renderFileCards();
+        }
+    }
+    
+    /**
+     * Handle select files button.
+     */
     @FXML
-    private void handleExecute() {
+    private void selectFiles() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(LocaleManager.getString("merge.selectFiles"));
+        chooser.getExtensionFilters().add(
+            new FileChooser.ExtensionFilter(
+                LocaleManager.getString("merge.pdfFiles"), "*.pdf")
+        );
+        
+        List<File> files = chooser.showOpenMultipleDialog(
+            selectFilesButton.getScene().getWindow()
+        );
+        
+        if (files != null && !files.isEmpty()) {
+            // Filter duplicates
+            List<File> newFiles = files.stream()
+                .filter(f -> selectedFiles.stream()
+                    .noneMatch(item -> item.getPath().toFile().getAbsolutePath()
+                        .equals(f.getAbsolutePath())))
+                .collect(Collectors.toList());
+            
+            for (File file : newFiles) {
+                addPdfFile(file);
+            }
+            
+            if (newFiles.size() < files.size()) {
+                showInfo(String.format(
+                    LocaleManager.getString("merge.duplicatesIgnored"),
+                    files.size() - newFiles.size()
+                ));
+            }
+        }
+    }
+    
+    /**
+     * Handle clear files button.
+     */
+    @FXML
+    private void clearFiles() {
+        if (!selectedFiles.isEmpty()) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle(LocaleManager.getString("merge.clearAll"));
+            confirm.setHeaderText(LocaleManager.getString("merge.clearAllConfirm"));
+            confirm.setContentText(LocaleManager.getString("merge.clearAllMessage"));
+            
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    selectedFiles.clear();
+                }
+            });
+        }
+    }
+    
+    /**
+     * Handle browse folder button.
+     */
+    @FXML
+    private void browseFolderButton() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle(LocaleManager.getString("merge.chooseFolder"));
+        
+        File currentFolder = new File(outputFolderField.getText());
+        if (currentFolder.exists() && currentFolder.isDirectory()) {
+            chooser.setInitialDirectory(currentFolder);
+        }
+        
+        File folder = chooser.showDialog(browseFolderButton.getScene().getWindow());
+        if (folder != null) {
+            outputFolderField.setText(folder.getAbsolutePath());
+        }
+    }
+    
+    /**
+     * Handle merge button.
+     */
+    @FXML
+    private void handleMerge() {
         // Validation
-        if (files.size() < 2) {
-            showAlert("Peringatan", "Pilih minimal 2 berkas PDF untuk digabung", Alert.AlertType.WARNING);
+        if (selectedFiles.size() < 2) {
+            showError(LocaleManager.getString("merge.error.minFiles"));
             return;
         }
         
-        String outputPath = outputFolderField != null ? outputFolderField.getText() : null;
-        if (outputPath == null || outputPath.isEmpty()) {
-            showAlert("Peringatan", "Pilih folder output", Alert.AlertType.WARNING);
+        String outputPath = outputFolderField.getText();
+        if (outputPath == null || outputPath.trim().isEmpty()) {
+            showError(LocaleManager.getString("merge.error.noOutputFolder"));
             return;
         }
         
-        String filename = outputFilenameField != null ? outputFilenameField.getText() : "digabung.pdf";
-        if (filename.isEmpty()) {
-            filename = "digabung.pdf";
+        String filename = outputFilenameField.getText();
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = "merged.pdf";
+        }
+        
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            filename += ".pdf";
+        }
+        
+        final File outputDir = new File(outputPath);
+        File outputFile = new File(outputDir, filename);
+        
+        // Check if file exists and handle duplicate
+        if (outputFile.exists()) {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle(LocaleManager.getString("merge.warning.fileExists"));
+            alert.setHeaderText(LocaleManager.getString("merge.warning.fileExistsHeader"));
+            alert.setContentText(String.format(
+                LocaleManager.getString("merge.warning.fileExistsMessage"), 
+                filename
+            ));
+            
+            ButtonType overwriteButton = new ButtonType(
+                LocaleManager.getString("merge.warning.overwrite"),
+                ButtonBar.ButtonData.OK_DONE
+            );
+            ButtonType renameButton = new ButtonType(
+                LocaleManager.getString("merge.warning.rename"),
+                ButtonBar.ButtonData.OTHER
+            );
+            ButtonType cancelButton = new ButtonType(
+                LocaleManager.getString("common.cancel"),
+                ButtonBar.ButtonData.CANCEL_CLOSE
+            );
+            
+            alert.getButtonTypes().setAll(renameButton, overwriteButton, cancelButton);
+            
+            var result = alert.showAndWait();
+            if (result.isEmpty() || result.get() == cancelButton) {
+                return; // User cancelled
+            } else if (result.get() == renameButton) {
+                // Auto-rename with incrementing number
+                outputFile = getUniqueOutputFile(outputDir, filename);
+                outputFilenameField.setText(outputFile.getName());
+            }
+            // If overwrite, continue with existing outputFile
         }
         
         // Show progress overlay
         showProgressOverlay();
         
-        // Create and execute task
-        currentTask = operation.execute(
-            files, 
-            new File(outputPath), 
-            filename, 
-            null
-        );
+        final File finalOutputFile = outputFile;
+        final List<File> files = selectedFiles.stream()
+            .map(item -> item.getPath().toFile())
+            .collect(Collectors.toList());
+        
+        mergeTask = new Task<File>() {
+            @Override
+            protected File call() throws Exception {
+                updateMessage(LocaleManager.getString("merge.progress.preparing"));
+                updateProgress(0, files.size() + 1);
+                
+                Thread.sleep(300);
+                
+                // Process each file
+                for (int i = 0; i < files.size(); i++) {
+                    if (isCancelled()) {
+                        updateMessage(LocaleManager.getString("merge.progress.cancelled"));
+                        return null;
+                    }
+                    
+                    String fileName = files.get(i).getName();
+                    updateMessage(String.format(
+                        LocaleManager.getString("merge.progress.processing"),
+                        i + 1, files.size(), fileName
+                    ));
+                    updateProgress(i + 1, files.size() + 1);
+                    Thread.sleep(200);
+                }
+                
+                // Perform merge
+                updateMessage(LocaleManager.getString("merge.progress.merging"));
+                mergeService.mergePdfs(files, finalOutputFile);
+                
+                updateMessage(LocaleManager.getString("merge.progress.writing"));
+                updateProgress(files.size() + 1, files.size() + 1);
+                Thread.sleep(200);
+                
+                updateMessage(LocaleManager.getString("merge.progress.complete"));
+                return finalOutputFile;
+            }
+        };
         
         // Bind progress
-        if (progressBar != null) {
-            progressBar.progressProperty().bind(currentTask.progressProperty());
-        }
-        if (progressMessage != null) {
-            progressMessage.textProperty().bind(currentTask.messageProperty());
-        }
+        progressBar.progressProperty().bind(mergeTask.progressProperty());
+        progressMessage.textProperty().bind(mergeTask.messageProperty());
         
-        currentTask.setOnSucceeded(e -> {
-            Platform.runLater(() -> {
-                File result = currentTask.getValue();
+        mergeTask.setOnSucceeded(e -> Platform.runLater(() -> {
+            File result = mergeTask.getValue();
+            if (result != null) {
                 lastOutputFile = result;
-                showSuccess("Berkas PDF berhasil digabung!\n\n" + result.getName());
-            });
-        });
+                showSuccess(result.getName());
+            }
+        }));
         
-        currentTask.setOnFailed(e -> {
-            Platform.runLater(() -> {
-                hideProgressOverlay();
-                Throwable ex = currentTask.getException();
-                showAlert("Gagal", 
-                    "Gagal menggabungkan PDF: " + (ex != null ? ex.getMessage() : "Unknown error"),
-                    Alert.AlertType.ERROR);
-            });
-        });
+        mergeTask.setOnFailed(e -> Platform.runLater(() -> {
+            hideProgressOverlay();
+            Throwable ex = mergeTask.getException();
+            showError(LocaleManager.getString("merge.error.failed") + 
+                     (ex != null ? ": " + ex.getMessage() : ""));
+        }));
         
-        currentTask.setOnCancelled(e -> {
-            Platform.runLater(() -> {
-                hideProgressOverlay();
-                showAlert("Dibatalkan", "Proses dibatalkan oleh pengguna", Alert.AlertType.INFORMATION);
-            });
-        });
+        mergeTask.setOnCancelled(e -> Platform.runLater(this::hideProgressOverlay));
         
-        new Thread(currentTask).start();
-    }
-
-    @FXML
-    private void handleCancel() {
-        AppNavigator.navigateToHome();
+        Thread thread = new Thread(mergeTask);
+        thread.setDaemon(true);
+        thread.start();
     }
     
+    /**
+     * Handle reset button.
+     */
     @FXML
-    private void handleCancelProcess() {
-        if (currentTask != null && currentTask.isRunning()) {
-            currentTask.cancel();
-        }
+    private void handleReset() {
+        selectedFiles.clear();
+        outputFilenameField.setText("merged.pdf");
     }
     
+    /**
+     * Handle open folder button.
+     */
     @FXML
     private void handleOpenFolder() {
         if (lastOutputFile != null && lastOutputFile.getParentFile() != null) {
             try {
-                Desktop.getDesktop().open(lastOutputFile.getParentFile());
+                java.awt.Desktop.getDesktop().open(lastOutputFile.getParentFile());
             } catch (Exception ex) {
-                showAlert("Error", "Tidak dapat membuka folder: " + ex.getMessage(), Alert.AlertType.ERROR);
+                showError(LocaleManager.getString("merge.error.openFolder") + ": " + ex.getMessage());
             }
         }
     }
     
+    /**
+     * Handle merge another button.
+     */
     @FXML
-    private void handleProcessAnother() {
+    private void handleMergeAnother() {
         hideProgressOverlay();
-        files.clear();
-        if (outputFilenameField != null) {
-            outputFilenameField.setText("digabung.pdf");
+        selectedFiles.clear();
+        outputFilenameField.setText("merged.pdf");
+    }
+    
+    /**
+     * Handle cancel process button.
+     */
+    @FXML
+    private void handleCancelProcess() {
+        if (mergeTask != null && mergeTask.isRunning()) {
+            mergeTask.cancel();
         }
     }
-
+    
+    /**
+     * Handle close success button.
+     */
+    @FXML
+    private void handleCloseSuccess() {
+        hideProgressOverlay();
+    }
+    
+    /**
+     * Get a unique output file by appending numbers if file exists.
+     * Example: merged.pdf -> merged_1.pdf -> merged_2.pdf
+     */
+    private File getUniqueOutputFile(File directory, String originalFilename) {
+        String baseName = originalFilename.substring(0, originalFilename.lastIndexOf('.'));
+        String extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
+        
+        int counter = 1;
+        File file = new File(directory, originalFilename);
+        
+        while (file.exists()) {
+            String newFilename = baseName + "_" + counter + extension;
+            file = new File(directory, newFilename);
+            counter++;
+        }
+        
+        return file;
+    }
+    
+    /**
+     * Show progress overlay.
+     */
     private void showProgressOverlay() {
-        if (progressOverlay != null) {
-            progressOverlay.setVisible(true);
-            progressOverlay.setManaged(true);
-        }
-        if (successPane != null) {
-            successPane.setVisible(false);
-            successPane.setManaged(false);
-        }
-        if (cancelProcessButton != null) {
-            cancelProcessButton.setVisible(true);
-            cancelProcessButton.setManaged(true);
-        }
+        progressOverlay.setVisible(true);
+        progressOverlay.setManaged(true);
+        successPane.setVisible(false);
+        successPane.setManaged(false);
+        cancelProcessButton.setVisible(true);
+        cancelProcessButton.setManaged(true);
     }
     
+    /**
+     * Hide progress overlay.
+     */
     private void hideProgressOverlay() {
-        if (progressOverlay != null) {
-            progressOverlay.setVisible(false);
-            progressOverlay.setManaged(false);
-        }
+        // Unbind properties before hiding to prevent binding errors
+        progressBar.progressProperty().unbind();
+        progressMessage.textProperty().unbind();
+        
+        progressOverlay.setVisible(false);
+        progressOverlay.setManaged(false);
     }
     
-    private void showSuccess(String message) {
-        if (cancelProcessButton != null) {
-            cancelProcessButton.setVisible(false);
-            cancelProcessButton.setManaged(false);
-        }
-        if (successPane != null) {
-            successPane.setVisible(true);
-            successPane.setManaged(true);
-        }
-        if (successMessage != null) {
-            successMessage.setText(message);
-        }
+    /**
+     * Show success state.
+     */
+    private void showSuccess(String filename) {
+        successMessage.setText(String.format(
+            LocaleManager.getString("merge.success.message"), 
+            filename
+        ));
+        
+        cancelProcessButton.setVisible(false);
+        cancelProcessButton.setManaged(false);
+        successPane.setVisible(true);
+        successPane.setManaged(true);
     }
-
-    private void showAlert(String title, String message, Alert.AlertType type) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
+    
+    /**
+     * Show error alert.
+     */
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(LocaleManager.getString("merge.error.title"));
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
     }
-
-    // Custom List Cell with Icons
-    private static class FileListCell extends ListCell<File> {
-        @Override
-        protected void updateItem(File file, boolean empty) {
-            super.updateItem(file, empty);
-            if (empty || file == null) {
-                setGraphic(null);
-                setText(null);
-            } else {
-                HBox box = new HBox(12);
-                box.setAlignment(Pos.CENTER_LEFT);
-                box.getStyleClass().add("file-item");
-                
-                // File icon
-                var icon = Icons.create("file-pdf", 20);
-                
-                // File info
-                VBox info = new VBox(2);
-                Label name = new Label(file.getName());
-                name.getStyleClass().add("file-name");
-                name.setStyle("-fx-font-weight: 600;");
-                
-                Label size = new Label(formatFileSize(file.length()));
-                size.getStyleClass().add("file-size");
-                size.setStyle("-fx-font-size: 12px; -fx-text-fill: #94a3b8;");
-                
-                info.getChildren().addAll(name, size);
-                
-                box.getChildren().addAll(icon, info);
-                setGraphic(box);
-                setText(null);
-            }
-        }
-        
-        private String formatFileSize(long bytes) {
-            if (bytes < 1024) return bytes + " B";
-            if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
-            return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
-        }
+    
+    /**
+     * Show info alert.
+     */
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(LocaleManager.getString("merge.title"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.show();
     }
 }

@@ -9,6 +9,7 @@ import com.pdftoolkit.state.CompressPdfState;
 import com.pdftoolkit.state.CompressionLevel;
 import com.pdftoolkit.state.StateStore;
 import com.pdftoolkit.ui.PdfItemCell;
+import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -19,6 +20,7 @@ import javafx.scene.control.*;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.TransferMode;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
@@ -33,129 +35,58 @@ import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 /**
- * Controller for Compress PDF view - iLovePDF-inspired redesign.
+ * Redesigned Compress PDF Controller with modern two-panel UI.
+ * LEFT: File workspace with drag & drop support
+ * RIGHT: Compression settings + Primary CTA
  * 
- * Features:
- * - Clean 2-column layout (files left, settings right)
- * - Radio card compression options instead of slider
- * - Collapsible "More options" panel
- * - Persistent state across language switches (via StateStore)
- * - Async loading of PDF metadata and thumbnails
- * - Drag & drop support for adding files
- * - Duplicate detection (by normalized absolute path)
- * - Per-item remove button
- * - Real PDFBox compression with configurable levels
+ * Key improvements over original CompressController:
+ * - Two-panel layout for better visual hierarchy
+ * - Improved file input with ListView for better scalability
+ * - Enhanced drag & drop with visual feedback
+ * - Better empty state design
+ * - Cleaner settings panel with radio cards
+ * - Persistent state management via StateStore
+ * - Async metadata loading for responsive UI
+ * - Proper validation with reactive bindings
  */
-public class CompressController {
+public class CompressControllerRedesigned {
 
-    // Top bar
-    @FXML
-    private Button backButton;
+    // Left Panel: File Staging Area (Following Protect Style)
+    @FXML private StackPane emptyStatePane;  // Drop zone (large)
+    @FXML private ListView<PdfItem> fileListView;
+    @FXML private VBox fileListContainer;
+    @FXML private Button addFilesButton;
+    @FXML private Label filesCountLabel;
+    @FXML private Button clearAllButton;
 
-    // File workspace (left column)
-    @FXML
-    private StackPane dropZone;
+    // Right Panel: Settings
+    @FXML private RadioButton extremeRadio;
+    @FXML private RadioButton recommendedRadio;
+    @FXML private RadioButton lowRadio;
+    @FXML private HBox extremeCard;
+    @FXML private HBox recommendedCard;
+    @FXML private HBox lowCard;
+    @FXML private CheckBox keepBestQualityCheckbox;
+    @FXML private TextField outputFolderField;
+    @FXML private Button browseOutputButton;
+    @FXML private Button compressButton;
 
-    @FXML
-    private VBox emptyStateContainer;
+    // Progress overlay elements (unified like Split)
+    @FXML private StackPane progressOverlay;
+    @FXML private Label progressTitle;
+    @FXML private ProgressBar progressBar;
+    @FXML private Label progressMessage;
+    @FXML private Button cancelProcessButton;
+    @FXML private VBox successPane;
+    @FXML private Label successMessage;
+    @FXML private Button openFolderButton;
+    @FXML private Button processAnotherButton;
+    @FXML private Button closeSuccessButton;
 
-    @FXML
-    private VBox fileListContainer;
-
-    @FXML
-    private ListView<PdfItem> fileListView;
-
-    @FXML
-    private Button addFilesButton;
-
-    @FXML
-    private Button addMoreButton;
-
-    @FXML
-    private Button clearButton;
-
-    // Settings panel (right column) - Radio Cards
-    @FXML
-    private RadioButton extremeRadio;
-
-    @FXML
-    private RadioButton recommendedRadio;
-
-    @FXML
-    private RadioButton lowRadio;
-    
-    @FXML
-    private javafx.scene.layout.HBox extremeCard;
-    
-    @FXML
-    private javafx.scene.layout.HBox recommendedCard;
-    
-    @FXML
-    private javafx.scene.layout.HBox lowCard;
-
-    @FXML
-    private Button moreOptionsToggle;
-
-    @FXML
-    private VBox moreOptionsPanel;
-
-    @FXML
-    private CheckBox keepBestQualityCheckbox;
-
-    @FXML
-    private TextField outputFolderField;
-
-    @FXML
-    private Button browseOutputButton;
-
-    @FXML
-    private TextField outputFileNameField;
-
-    @FXML
-    private Button processButton;
-
-    // Progress overlay
-    @FXML
-    private StackPane progressOverlay;
-
-    @FXML
-    private VBox processingPane;
-
-    @FXML
-    private ProgressBar progressBar;
-
-    @FXML
-    private Label progressLabel;
-
-    @FXML
-    private Button cancelButton;
-
-    @FXML
-    private VBox completionPane;
-
-    @FXML
-    private Label completionMessage;
-
-    @FXML
-    private Button openFolderButton;
-
-    @FXML
-    private Button processAnotherButton;
-
-    // Hidden fields for backwards compatibility
-    @FXML
-    private Slider compressionSlider;
-
-    @FXML
-    private Label compressionLevelLabel;
-
-    // Persistent state
+    // State and Services
     private CompressPdfState state;
-    
-    // Services
     private final PdfPreviewService previewService = PdfPreviewService.getInstance();
     private final CompressPdfService compressService = new CompressPdfService();
-    
     private Task<?> currentTask;
     private ResourceBundle bundle;
     private ToggleGroup compressionGroup;
@@ -168,108 +99,117 @@ public class CompressController {
         // Get resource bundle for i18n
         bundle = LocaleManager.getBundle();
         
-        setupRadioButtons();
-        setupListView();
+        // Initialize UI components
+        setupCompressionRadioCards();
+        setupFileListView();
         setupDragAndDrop();
         setupOutputSettings();
         setupButtons();
         setupValidation();
         setupKeyboardShortcuts();
+        setupLocaleListener();
         
+        // Initialize visibility
+        updateEmptyState();
         progressOverlay.setVisible(false);
         progressOverlay.setManaged(false);
-        completionPane.setVisible(false);
-        processingPane.setVisible(true);
         
-        // Setup locale listener for live language switching
-        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> {
-            bundle = LocaleManager.getBundle();
-            updateTexts();
-        });
-        
-        // Initial text update
+        // Update UI text
         updateTexts();
     }
-    
+
     /**
-     * Setup radio button toggle group for compression levels.
-     * Each card is fully clickable and updates the RadioButton selection.
+     * Setup compression radio cards with toggle group and click handlers.
      */
-    private void setupRadioButtons() {
+    private void setupCompressionRadioCards() {
+        // Create toggle group
         compressionGroup = new ToggleGroup();
         extremeRadio.setToggleGroup(compressionGroup);
         recommendedRadio.setToggleGroup(compressionGroup);
         lowRadio.setToggleGroup(compressionGroup);
         
-        // Set initial selection based on state
-        switch (state.getCompressionLevel()) {
-            case LOW -> lowRadio.setSelected(true);
-            case EXTREME -> extremeRadio.setSelected(true);
-            default -> recommendedRadio.setSelected(true);
-        }
+        // Set initial selection from state
+        selectCompressionLevel(state.getCompressionLevel());
         
         // Make entire card clickable
         extremeCard.setOnMouseClicked(e -> extremeRadio.setSelected(true));
         recommendedCard.setOnMouseClicked(e -> recommendedRadio.setSelected(true));
         lowCard.setOnMouseClicked(e -> lowRadio.setSelected(true));
         
-        // Add visual feedback on card hover
+        // Add hover effects
         setupCardHoverEffect(extremeCard, extremeRadio);
         setupCardHoverEffect(recommendedCard, recommendedRadio);
         setupCardHoverEffect(lowCard, lowRadio);
         
-        // Sync state with radio button selection
+        // Sync state with selection
         compressionGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
-            if (newToggle == extremeRadio) {
-                state.setCompressionLevel(CompressionLevel.EXTREME);
-                updateCardSelection(extremeCard, true);
-                updateCardSelection(recommendedCard, false);
-                updateCardSelection(lowCard, false);
-            } else if (newToggle == lowRadio) {
-                state.setCompressionLevel(CompressionLevel.LOW);
-                updateCardSelection(extremeCard, false);
-                updateCardSelection(recommendedCard, false);
-                updateCardSelection(lowCard, true);
-            } else {
-                state.setCompressionLevel(CompressionLevel.RECOMMENDED);
-                updateCardSelection(extremeCard, false);
-                updateCardSelection(recommendedCard, true);
-                updateCardSelection(lowCard, false);
-            }
-            updateProcessButtonText();
+            CompressionLevel level = getSelectedCompressionLevel();
+            state.setCompressionLevel(level);
+            updateCardSelection();
+            updateCompressButtonText();
         });
         
         // Initial card selection styling
-        updateCardSelection(recommendedCard, true);
+        updateCardSelection();
         
-        // Bind checkbox to state
+        // Bind keep best quality checkbox
         keepBestQualityCheckbox.selectedProperty().bindBidirectional(state.keepBestQualityProperty());
-        
-        // More options toggle
-        moreOptionsToggle.setOnAction(e -> toggleMoreOptions());
     }
-    
+
     /**
-     * Setup hover effects for radio cards.
+     * Get the currently selected compression level from radio buttons.
      */
-    private void setupCardHoverEffect(javafx.scene.layout.HBox card, RadioButton radio) {
+    private CompressionLevel getSelectedCompressionLevel() {
+        if (extremeRadio.isSelected()) {
+            return CompressionLevel.EXTREME;
+        } else if (lowRadio.isSelected()) {
+            return CompressionLevel.LOW;
+        } else {
+            return CompressionLevel.RECOMMENDED;
+        }
+    }
+
+    /**
+     * Set the radio button selection based on compression level.
+     */
+    private void selectCompressionLevel(CompressionLevel level) {
+        switch (level) {
+            case EXTREME -> extremeRadio.setSelected(true);
+            case LOW -> lowRadio.setSelected(true);
+            default -> recommendedRadio.setSelected(true);
+        }
+    }
+
+    /**
+     * Setup hover effects for radio card.
+     */
+    private void setupCardHoverEffect(HBox card, RadioButton radio) {
         card.setOnMouseEntered(e -> {
             if (!radio.isSelected()) {
-                card.setStyle(card.getStyle() + "-fx-background-color: rgba(59, 130, 246, 0.08);");
+                if (!card.getStyleClass().contains("radio-card-hover")) {
+                    card.getStyleClass().add("radio-card-hover");
+                }
             }
         });
         card.setOnMouseExited(e -> {
-            if (!radio.isSelected()) {
-                card.setStyle("");
-            }
+            card.getStyleClass().remove("radio-card-hover");
         });
     }
-    
+
     /**
-     * Update visual selection state of a radio card.
+     * Update visual selection state of all radio cards.
      */
-    private void updateCardSelection(javafx.scene.layout.HBox card, boolean selected) {
-        if (selected) {
+    private void updateCardSelection() {
+        updateSingleCardSelection(extremeCard, extremeRadio);
+        updateSingleCardSelection(recommendedCard, recommendedRadio);
+        updateSingleCardSelection(lowCard, lowRadio);
+    }
+
+    /**
+     * Update visual selection state of a single radio card.
+     */
+    private void updateSingleCardSelection(HBox card, RadioButton radio) {
+        if (radio.isSelected()) {
             if (!card.getStyleClass().contains("radio-card-selected")) {
                 card.getStyleClass().add("radio-card-selected");
             }
@@ -277,80 +217,39 @@ public class CompressController {
             card.getStyleClass().remove("radio-card-selected");
         }
     }
-    
+
     /**
-     * Toggle visibility of more options panel.
+     * Setup file ListView with custom cell factory.
      */
-    private void toggleMoreOptions() {
-        boolean isVisible = moreOptionsPanel.isVisible();
-        moreOptionsPanel.setVisible(!isVisible);
-        moreOptionsPanel.setManaged(!isVisible);
-        moreOptionsToggle.setText(isVisible ? "More options ▾" : "More options ▴");
-    }
-    
-    /**
-     * Setup ListView with custom cell factory and bind to persistent state.
-     */
-    private void setupListView() {
-        // Bind ListView to persistent state
+    private void setupFileListView() {
+        // Bind ListView to state
         fileListView.setItems(state.getItems());
         
-        // Custom cell factory
-        fileListView.setCellFactory(lv -> new PdfItemCell(this::handleRemoveItem));
+        // Custom cell factory with remove button
+        fileListView.setCellFactory(lv -> new PdfItemCell(this::handleRemoveFile));
         
-        // Show/hide empty state vs file list based on content
+        // Update UI when list changes
         state.getItems().addListener((ListChangeListener<PdfItem>) change -> {
             updateEmptyState();
-            updateProcessButtonText();
+            updateFilesCountLabel();
+            updateCompressButtonText();
         });
         
-        updateEmptyState();
-        
-        // Placeholder when list is empty
-        fileListView.setPlaceholder(new Label()); // Empty, we use custom overlay
+        // Set empty placeholder
+        fileListView.setPlaceholder(new Label());
     }
-    
-    private void updateEmptyState() {
-        boolean isEmpty = state.getItems().isEmpty();
-        
-        // Show/hide empty state
-        if (emptyStateContainer != null) {
-            emptyStateContainer.setVisible(isEmpty);
-            emptyStateContainer.setManaged(isEmpty);
-        }
-        
-        // Show/hide file list container
-        if (fileListContainer != null) {
-            fileListContainer.setVisible(!isEmpty);
-            fileListContainer.setManaged(!isEmpty);
-        }
-    }
-    
+
     /**
-     * Update the process button text based on file count.
-     * "Compress 1 PDF" / "Compress 2 PDFs"
-     */
-    private void updateProcessButtonText() {
-        int count = state.getItems().size();
-        if (count == 0) {
-            processButton.setText(bundle.getString("compress.compressNow"));
-        } else if (count == 1) {
-            processButton.setText("Compress 1 PDF");
-        } else {
-            processButton.setText(String.format("Compress %d PDFs", count));
-        }
-    }
-    
-    /**
-     * Setup drag and drop for the drop zone.
+     * Setup drag and drop support for file input.
      */
     private void setupDragAndDrop() {
-        dropZone.setOnDragOver(this::handleDragOver);
-        dropZone.setOnDragDropped(this::handleDragDropped);
+        // Apply drag-drop to empty state pane (drop zone)
+        emptyStatePane.setOnDragOver(this::handleDragOver);
+        emptyStatePane.setOnDragDropped(this::handleDragDropped);
         
-        // Also enable drag-drop on the ListView itself
-        fileListView.setOnDragOver(this::handleDragOver);
-        fileListView.setOnDragDropped(this::handleDragDropped);
+        // Also enable on file list container (when files exist)
+        fileListContainer.setOnDragOver(this::handleDragOver);
+        fileListContainer.setOnDragDropped(this::handleDragDropped);
     }
 
     private void handleDragOver(DragEvent event) {
@@ -361,30 +260,38 @@ public class CompressController {
     }
 
     private void handleDragDropped(DragEvent event) {
+        
         List<File> files = event.getDragboard().getFiles();
-        if (files != null) {
+        if (files != null && !files.isEmpty()) {
             List<Path> pdfPaths = files.stream()
                 .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
                 .map(File::toPath)
                 .collect(Collectors.toList());
             
-            addFiles(pdfPaths);
+            if (!pdfPaths.isEmpty()) {
+                addFiles(pdfPaths);
+            } else {
+                showError(bundle.getString("compress.error.noPdfFiles"));
+            }
         }
+        
         event.setDropCompleted(true);
         event.consume();
     }
 
     /**
-     * Setup output folder and filename fields with state binding.
+     * Setup output folder and filename with state binding.
      */
     private void setupOutputSettings() {
-        // Initialize default output folder if not set
+        // Set default output folder if not set
         if (state.getOutputFolder() == null) {
-            Path defaultFolder = Paths.get(System.getProperty("user.home"), "Desktop");
-            if (!Files.exists(defaultFolder)) {
-                defaultFolder = Paths.get(System.getProperty("user.home"));
-            }
+            Path defaultFolder = Paths.get(AppPaths.getDefaultOutputPath());
             state.setOutputFolder(defaultFolder);
+        }
+        
+        // Set default output filename if not set
+        if (state.getOutputFileName() == null || state.getOutputFileName().isEmpty()) {
+            state.setOutputFileName("compressed.pdf");
         }
         
         // Bind output folder field to state
@@ -394,54 +301,47 @@ public class CompressController {
                 state.outputFolderProperty()
             )
         );
-        
-        // Bind output filename field to state (bidirectional)
-        outputFileNameField.textProperty().bindBidirectional(state.outputFileNameProperty());
     }
 
+    /**
+     * Setup all button handlers.
+     */
     private void setupButtons() {
-        backButton.setOnAction(e -> AppNavigator.navigateToHome());
         addFilesButton.setOnAction(e -> handleAddFiles());
-        if (addMoreButton != null) {
-            addMoreButton.setOnAction(e -> handleAddFiles());
-        }
-        clearButton.setOnAction(e -> handleClear());
+        clearAllButton.setOnAction(e -> handleClearAll());
         browseOutputButton.setOnAction(e -> handleBrowseOutput());
-        processButton.setOnAction(e -> handleProcess());
-        cancelButton.setOnAction(e -> handleCancelProcess());
+        compressButton.setOnAction(e -> handleCompress());
         openFolderButton.setOnAction(e -> handleOpenFolder());
         processAnotherButton.setOnAction(e -> handleProcessAnother());
     }
 
     /**
-     * Setup validation rules - disable process button when state is invalid.
-     * Uses pure binding approach - no imperative setDisable() calls.
+     * Setup validation - disable compress button when invalid state.
      */
     private void setupValidation() {
-        // Create a BooleanBinding that tracks all validation conditions
         javafx.beans.binding.BooleanBinding shouldDisable = Bindings.createBooleanBinding(
             () -> {
-                // Disable if no items
+                // Disable if no files
                 if (state.getItems().isEmpty()) {
                     return true;
                 }
                 
-                // Disable if any item is loading
+                // Disable if any file is loading
                 if (state.getItems().stream().anyMatch(PdfItem::isLoading)) {
                     return true;
                 }
                 
-                // Disable if any item has error
+                // Disable if any file has error
                 if (state.getItems().stream().anyMatch(PdfItem::hasError)) {
                     return true;
                 }
                 
-                // Disable if output folder is null or invalid
+                // Disable if output folder is invalid
                 if (state.getOutputFolder() == null) {
                     return true;
                 }
                 
-                // Disable if output filename is empty or invalid
+                // Disable if output filename is empty
                 String fileName = state.getOutputFileName();
                 if (fileName == null || fileName.trim().isEmpty()) {
                     return true;
@@ -454,55 +354,115 @@ public class CompressController {
             state.outputFileNameProperty()
         );
         
-        // Bind once and never call setDisable manually
-        processButton.disableProperty().bind(shouldDisable);
+        compressButton.disableProperty().bind(shouldDisable);
         
-        // Listen to individual item changes to trigger binding re-evaluation
+        // Listen to item property changes
         state.getItems().addListener((ListChangeListener<PdfItem>) change -> {
             while (change.next()) {
                 if (change.wasAdded()) {
                     for (PdfItem item : change.getAddedSubList()) {
-                        // Invalidate binding when loading or error state changes
-                        item.loadingProperty().addListener((obs, oldVal, newVal) -> {
-                            shouldDisable.invalidate();
-                        });
-                        item.errorProperty().addListener((obs, oldVal, newVal) -> {
-                            shouldDisable.invalidate();
-                        });
+                        item.loadingProperty().addListener((obs, oldVal, newVal) -> 
+                            shouldDisable.invalidate());
+                        item.errorProperty().addListener((obs, oldVal, newVal) -> 
+                            shouldDisable.invalidate());
                     }
                 }
             }
         });
     }
-    
+
     /**
-     * Setup keyboard shortcuts (Delete key to remove selected items).
+     * Setup keyboard shortcuts.
      */
     private void setupKeyboardShortcuts() {
         fileListView.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
                 PdfItem selected = fileListView.getSelectionModel().getSelectedItem();
                 if (selected != null) {
-                    handleRemoveItem(selected);
+                    handleRemoveFile(selected);
                 }
             }
         });
     }
-    
+
+    /**
+     * Setup locale change listener for live language switching.
+     */
+    private void setupLocaleListener() {
+        LocaleManager.localeProperty().addListener((obs, oldVal, newVal) -> {
+            bundle = LocaleManager.getBundle();
+            updateTexts();
+        });
+    }
+
+    /**
+     * Update all UI texts based on current locale.
+     */
     private void updateTexts() {
-        // Update process button text based on file count
-        updateProcessButtonText();
+        updateCompressButtonText();
+        updateFilesCountLabel();
+    }
+
+    /**
+     * Update empty state visibility based on file list.
+     */
+    private void updateEmptyState() {
+        boolean isEmpty = state.getItems().isEmpty();
+        
+        if (emptyStatePane != null) {
+            emptyStatePane.setVisible(isEmpty);
+            emptyStatePane.setManaged(isEmpty);
+        }
+        
+        if (fileListContainer != null) {
+            fileListContainer.setVisible(!isEmpty);
+            fileListContainer.setManaged(!isEmpty);
+        }
+    }
+
+    /**
+     * Update files count label.
+     */
+    private void updateFilesCountLabel() {
+        int count = state.getItems().size();
+        if (count == 0) {
+            filesCountLabel.setText(bundle.getString("compress.noFiles"));
+        } else if (count == 1) {
+            filesCountLabel.setText("1 " + bundle.getString("compress.file"));
+        } else {
+            filesCountLabel.setText(count + " " + bundle.getString("compress.files"));
+        }
+    }
+
+    /**
+     * Update compress button text based on file count.
+     */
+    private void updateCompressButtonText() {
+        int count = state.getItems().size();
+        if (count == 0) {
+            compressButton.setText(bundle.getString("compress.compressNow"));
+        } else if (count == 1) {
+            compressButton.setText(bundle.getString("compress.compressFile"));
+        } else {
+            compressButton.setText(String.format(bundle.getString("compress.compressFiles"), count));
+        }
     }
 
     /**
      * Handle add files button click.
      */
+    @FXML
     private void handleAddFiles() {
         FileChooser chooser = new FileChooser();
         chooser.setTitle(bundle.getString("compress.selectFiles"));
         chooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+            new FileChooser.ExtensionFilter(bundle.getString("compress.pdfFiles"), "*.pdf")
         );
+        
+        // Set initial directory from state or default
+        if (state.getOutputFolder() != null && Files.exists(state.getOutputFolder())) {
+            chooser.setInitialDirectory(state.getOutputFolder().toFile());
+        }
         
         List<File> files = chooser.showOpenMultipleDialog(AppNavigator.getPrimaryStage());
         if (files != null && !files.isEmpty()) {
@@ -510,42 +470,75 @@ public class CompressController {
             addFiles(paths);
         }
     }
-    
+
     /**
-     * Add files to the list, ignoring duplicates and loading metadata asynchronously.
+     * Add files to the list with duplicate detection and async metadata loading.
      */
     private void addFiles(List<Path> paths) {
+        int addedCount = 0;
+        int duplicateCount = 0;
+        
         for (Path path : paths) {
-            // Create PdfItem
+            // Validate file exists and is readable
+            if (!Files.exists(path) || !Files.isReadable(path)) {
+                continue;
+            }
+            
+            // Create PDF item
             PdfItem item = new PdfItem(path);
             
-            // Try to add to state (will reject duplicates)
+            // Try to add (will reject duplicates)
             boolean added = state.addItem(item);
             
             if (added) {
+                addedCount++;
                 // Load metadata asynchronously
                 previewService.loadMetadataAsync(item);
+            } else {
+                duplicateCount++;
             }
         }
+        
+        // Show feedback if duplicates were ignored
+        if (duplicateCount > 0) {
+            String message = String.format(
+                bundle.getString("compress.duplicatesIgnored"), 
+                duplicateCount
+            );
+            showInfo(message);
+        }
     }
-    
+
     /**
-     * Handle remove item from list.
+     * Handle remove file from list.
      */
-    private void handleRemoveItem(PdfItem item) {
+    private void handleRemoveFile(PdfItem item) {
         state.removeItem(item);
     }
 
     /**
      * Handle clear all files.
      */
-    private void handleClear() {
-        state.clearItems();
+    @FXML
+    private void handleClearAll() {
+        if (!state.getItems().isEmpty()) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle(bundle.getString("compress.clearAll"));
+            confirm.setHeaderText(bundle.getString("compress.clearAllConfirm"));
+            confirm.setContentText(bundle.getString("compress.clearAllMessage"));
+            
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    state.clearItems();
+                }
+            });
+        }
     }
 
     /**
      * Handle browse output folder.
      */
+    @FXML
     private void handleBrowseOutput() {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle(bundle.getString("compress.chooseFolder"));
@@ -561,14 +554,15 @@ public class CompressController {
     }
 
     /**
-     * Handle compress now button - start compression task.
+     * Handle compress button - start compression process.
      */
-    private void handleProcess() {
+    @FXML
+    private void handleCompress() {
         if (!state.isValid()) {
             return;
         }
 
-        // Prepare paths
+        // Prepare compression parameters
         List<Path> inputPaths = state.getItems().stream()
             .map(PdfItem::getPath)
             .collect(Collectors.toList());
@@ -578,7 +572,7 @@ public class CompressController {
         CompressionLevel level = state.getCompressionLevel();
         boolean keepBestQuality = state.isKeepBestQuality();
         
-        // Ensure output filename has .pdf extension
+        // Ensure .pdf extension
         if (!outputFileName.toLowerCase().endsWith(".pdf")) {
             outputFileName += ".pdf";
         }
@@ -612,74 +606,61 @@ public class CompressController {
             );
         }
 
-        // Bind progress UI
+        // Bind progress
         progressBar.progressProperty().bind(currentTask.progressProperty());
-        progressLabel.textProperty().bind(currentTask.messageProperty());
+        progressMessage.textProperty().bind(currentTask.messageProperty());
 
+        // Handle task completion
         currentTask.setOnSucceeded(e -> Platform.runLater(() -> {
-            showCompletion();
+            showSuccess();
             AppState.getInstance().addRecentFile("Compress", state.getOutputFolder().toFile());
         }));
 
         currentTask.setOnFailed(e -> Platform.runLater(() -> {
             hideProgressOverlay();
-            
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle(bundle.getString("progress.error"));
-            alert.setHeaderText(bundle.getString("compress.title"));
             Throwable ex = currentTask.getException();
-            alert.setContentText(ex != null ? ex.getMessage() : "Unknown error occurred");
-            alert.showAndWait();
+            String errorMsg = ex != null ? ex.getMessage() : bundle.getString("compress.error.unknown");
+            showError(errorMsg);
         }));
 
-        currentTask.setOnCancelled(e -> Platform.runLater(() -> {
-            hideProgressOverlay();
-        }));
+        currentTask.setOnCancelled(e -> Platform.runLater(this::hideProgressOverlay));
 
-        showProgressOverlay(bundle.getString("compress.processing"));
+        // Show progress overlay
+        showProgressOverlay();
         
+        // Start task
         Thread thread = new Thread(currentTask);
         thread.setDaemon(true);
         thread.start();
     }
-    
     /**
-     * Show progress overlay with scrim background.
+     * Handle open folder button.
      */
-    private void showProgressOverlay(String message) {
-        processingPane.setVisible(true);
-        processingPane.setManaged(true);
-        completionPane.setVisible(false);
-        completionPane.setManaged(false);
-        
-        progressLabel.setText(message);
-        progressBar.setProgress(0);
-        
-        progressOverlay.setVisible(true);
-        progressOverlay.setManaged(true);
-    }
-    
-    /**
-     * Update progress overlay with new value and message.
-     */
-    private void updateProgress(double progress, String message) {
-        Platform.runLater(() -> {
-            progressBar.setProgress(progress);
-            progressLabel.setText(message);
-        });
-    }
-    
-    /**
-     * Hide progress overlay.
-     */
-    private void hideProgressOverlay() {
-        progressOverlay.setVisible(false);
-        progressOverlay.setManaged(false);
+    @FXML
+    private void handleOpenFolder() {
+        try {
+            if (state.getOutputFolder() != null && Files.exists(state.getOutputFolder())) {
+                java.awt.Desktop.getDesktop().open(state.getOutputFolder().toFile());
+            }
+        } catch (Exception e) {
+            showError(bundle.getString("compress.error.openFolder") + ": " + e.getMessage());
+        }
     }
 
     /**
-     * Handle cancel button during processing.
+     * Handle process another button.
      */
+    @FXML
+    private void handleProcessAnother() {
+        hideProgressOverlay();
+        // Optionally clear files for next operation
+        // state.clearItems();
+    }
+
+    /**
+     * Handle cancel process button.
+     */
+    @FXML
     private void handleCancelProcess() {
         if (currentTask != null && currentTask.isRunning()) {
             currentTask.cancel();
@@ -687,53 +668,75 @@ public class CompressController {
     }
 
     /**
-     * Show completion UI.
+     * Handle close success button.
      */
-    private void showCompletion() {
-        int fileCount = state.getItems().size();
-        String message = String.format(
-            bundle.getString("compress.success") + "\n%d file(s) compressed",
-            fileCount
-        );
-        completionMessage.setText(message);
+    @FXML
+    private void handleCloseSuccess() {
+        hideProgressOverlay();
+    }
+
+    /**
+     * Show progress overlay.
+     */
+    private void showProgressOverlay() {
+        progressOverlay.setVisible(true);
+        progressOverlay.setManaged(true);
+        successPane.setVisible(false);
+        successPane.setManaged(false);
+        cancelProcessButton.setVisible(true);
+        cancelProcessButton.setManaged(true);
+    }
+
+    /**
+     * Hide progress overlay.
+     */
+    private void hideProgressOverlay() {
+        // Unbind properties before hiding to prevent binding errors
+        progressBar.progressProperty().unbind();
+        progressMessage.textProperty().unbind();
         
-        processingPane.setVisible(false);
-        processingPane.setManaged(false);
-        completionPane.setVisible(true);
-        completionPane.setManaged(true);
-    }
-
-    /**
-     * Handle open folder button.
-     */
-    private void handleOpenFolder() {
-        try {
-            if (state.getOutputFolder() != null && Files.exists(state.getOutputFolder())) {
-                java.awt.Desktop.getDesktop().open(state.getOutputFolder().toFile());
-            }
-        } catch (Exception e) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Error");
-            alert.setContentText("Cannot open folder: " + e.getMessage());
-            alert.showAndWait();
-        }
-    }
-
-    /**
-     * Handle process another button - close overlay and reset for next compression.
-     */
-    private void handleProcessAnother() {
         progressOverlay.setVisible(false);
         progressOverlay.setManaged(false);
+    }
+
+    /**
+     * Show success completion state.
+     */
+    private void showSuccess() {
+        int fileCount = state.getItems().size();
+        String message;
+        if (fileCount == 1) {
+            message = bundle.getString("compress.success.single");
+        } else {
+            message = String.format(bundle.getString("compress.success.multiple"), fileCount);
+        }
         
-        processingPane.setVisible(true);
-        processingPane.setManaged(true);
-        completionPane.setVisible(false);
-        completionPane.setManaged(false);
-        
-        // Optionally clear items
-        // state.clearItems();
+        cancelProcessButton.setVisible(false);
+        cancelProcessButton.setManaged(false);
+        successPane.setVisible(true);
+        successPane.setManaged(true);
+        successMessage.setText(message);
+    }
+
+    /**
+     * Show error alert.
+     */
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(bundle.getString("compress.error.title"));
+        alert.setHeaderText(bundle.getString("compress.title"));
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    /**
+     * Show info alert.
+     */
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(bundle.getString("compress.title"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.show();
     }
 }
-
-
