@@ -8,6 +8,7 @@ import com.pdftoolkit.services.PdfPreviewService;
 import com.pdftoolkit.state.CompressPdfState;
 import com.pdftoolkit.state.CompressionLevel;
 import com.pdftoolkit.state.StateStore;
+import com.pdftoolkit.ui.CustomDialog;
 import com.pdftoolkit.ui.PdfItemCell;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
@@ -522,16 +523,15 @@ public class CompressController {
     @FXML
     private void handleClearAll() {
         if (!state.getItems().isEmpty()) {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-            confirm.setTitle(bundle.getString("compress.clearAll"));
-            confirm.setHeaderText(bundle.getString("compress.clearAllConfirm"));
-            confirm.setContentText(bundle.getString("compress.clearAllMessage"));
+            boolean confirmed = CustomDialog.showConfirmation(
+                bundle.getString("compress.clearAll"),
+                bundle.getString("compress.clearAllConfirm") + "\n\n" + 
+                bundle.getString("compress.clearAllMessage")
+            );
             
-            confirm.showAndWait().ifPresent(response -> {
-                if (response == ButtonType.OK) {
-                    state.clearItems();
-                }
-            });
+            if (confirmed) {
+                state.clearItems();
+            }
         }
     }
 
@@ -722,21 +722,19 @@ public class CompressController {
      * Show error alert.
      */
     private void showError(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(bundle.getString("compress.error.title"));
-        alert.setHeaderText(bundle.getString("compress.title"));
-        alert.setContentText(message);
-        alert.showAndWait();
+        CustomDialog.showError(
+            bundle.getString("compress.error.title"),
+            message
+        );
     }
 
     /**
      * Show info alert.
      */
     private void showInfo(String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(bundle.getString("compress.title"));
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.show();
+        CustomDialog.showInfo(
+            bundle.getString("compress.title"),
+            message
+        );
     }
 }

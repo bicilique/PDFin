@@ -4,6 +4,7 @@ import com.pdftoolkit.navigation.AppNavigator;
 import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfSplitService;
 import com.pdftoolkit.services.PdfThumbnailService;
+import com.pdftoolkit.ui.CustomDialog;
 import com.pdftoolkit.ui.PageThumbnailCard;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
@@ -1240,11 +1241,19 @@ public class SplitController {
     }
     
     private void showAlert(String message, Alert.AlertType type) {
-        Alert alert = new Alert(type);
-        alert.setTitle(type == Alert.AlertType.ERROR ? "Error" : "Information");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+        String title = switch (type) {
+            case ERROR -> "Error";
+            case WARNING -> "Warning";
+            case INFORMATION -> "Information";
+            default -> "Alert";
+        };
+        
+        switch (type) {
+            case ERROR -> CustomDialog.showError(title, message);
+            case WARNING -> CustomDialog.showWarning(title, message);
+            case INFORMATION -> CustomDialog.showInfo(title, message);
+            default -> CustomDialog.showInfo(title, message);
+        }
     }
     
     /**

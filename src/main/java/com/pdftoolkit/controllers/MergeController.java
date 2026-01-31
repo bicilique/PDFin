@@ -4,6 +4,7 @@ import com.pdftoolkit.models.PdfItem;
 import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfMergeService;
 import com.pdftoolkit.services.PdfPreviewService;
+import com.pdftoolkit.ui.CustomDialog;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
@@ -608,16 +609,15 @@ public class MergeController {
     @FXML
     private void clearFiles() {
         if (!selectedFiles.isEmpty()) {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-            confirm.setTitle(LocaleManager.getString("merge.clearAll"));
-            confirm.setHeaderText(LocaleManager.getString("merge.clearAllConfirm"));
-            confirm.setContentText(LocaleManager.getString("merge.clearAllMessage"));
+            boolean confirmed = CustomDialog.showConfirmation(
+                LocaleManager.getString("merge.clearAll"),
+                LocaleManager.getString("merge.clearAllConfirm") + "\n\n" + 
+                LocaleManager.getString("merge.clearAllMessage")
+            );
             
-            confirm.showAndWait().ifPresent(response -> {
-                if (response == ButtonType.OK) {
-                    selectedFiles.clear();
-                }
-            });
+            if (confirmed) {
+                selectedFiles.clear();
+            }
         }
     }
     
@@ -671,38 +671,23 @@ public class MergeController {
         
         // Check if file exists and handle duplicate
         if (outputFile.exists()) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle(LocaleManager.getString("merge.warning.fileExists"));
-            alert.setHeaderText(LocaleManager.getString("merge.warning.fileExistsHeader"));
-            alert.setContentText(String.format(
-                LocaleManager.getString("merge.warning.fileExistsMessage"), 
-                filename
-            ));
-            
-            ButtonType overwriteButton = new ButtonType(
-                LocaleManager.getString("merge.warning.overwrite"),
-                ButtonBar.ButtonData.OK_DONE
-            );
-            ButtonType renameButton = new ButtonType(
+            var result = CustomDialog.showTripleChoice(
+                LocaleManager.getString("merge.warning.fileExists"),
+                LocaleManager.getString("merge.warning.fileExistsHeader") + "\n\n" +
+                String.format(LocaleManager.getString("merge.warning.fileExistsMessage"), filename),
                 LocaleManager.getString("merge.warning.rename"),
-                ButtonBar.ButtonData.OTHER
-            );
-            ButtonType cancelButton = new ButtonType(
-                LocaleManager.getString("common.cancel"),
-                ButtonBar.ButtonData.CANCEL_CLOSE
+                LocaleManager.getString("merge.warning.overwrite"),
+                LocaleManager.getString("common.cancel")
             );
             
-            alert.getButtonTypes().setAll(renameButton, overwriteButton, cancelButton);
-            
-            var result = alert.showAndWait();
-            if (result.isEmpty() || result.get() == cancelButton) {
+            if (result.isEmpty() || result.get().getButtonData() == ButtonBar.ButtonData.CANCEL_CLOSE) {
                 return; // User cancelled
-            } else if (result.get() == renameButton) {
-                // Auto-rename with incrementing number
+            } else if (result.get().getButtonData() == ButtonBar.ButtonData.YES) {
+                // Rename (YES = first button)
                 outputFile = getUniqueOutputFile(outputDir, filename);
                 outputFilenameField.setText(outputFile.getName());
             }
-            // If overwrite, continue with existing outputFile
+            // If overwrite (NO = second button), continue with existing outputFile
         }
         
         // Show progress overlay
@@ -886,21 +871,19 @@ public class MergeController {
      * Show error alert.
      */
     private void showError(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(LocaleManager.getString("merge.error.title"));
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+        CustomDialog.showError(
+            LocaleManager.getString("merge.error.title"),
+            message
+        );
     }
     
     /**
      * Show info alert.
      */
     private void showInfo(String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(LocaleManager.getString("merge.title"));
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.show();
+        CustomDialog.showInfo(
+            LocaleManager.getString("merge.title"),
+            message
+        );
     }
 }
