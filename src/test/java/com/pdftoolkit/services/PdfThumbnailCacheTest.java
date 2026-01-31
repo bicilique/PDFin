@@ -1,5 +1,6 @@
 package com.pdftoolkit.services;
 
+import javafx.embed.swing.JFXPanel;
 import javafx.scene.image.Image;
 import org.junit.jupiter.api.*;
 
@@ -16,6 +17,12 @@ class PdfThumbnailCacheTest {
 
     private PdfThumbnailCache cache;
     private Image dummyImage;
+
+    @BeforeAll
+    static void initJavaFX() {
+        // Initialize JavaFX toolkit
+        new JFXPanel();
+    }
 
     @BeforeEach
     void setUp() {
@@ -89,18 +96,22 @@ class PdfThumbnailCacheTest {
     }
 
     @Test
-    @DisplayName("Test zoom bucketing rounds to nearest 0.1")
+    @DisplayName("Test zoom bucketing with various decimal values")
     void testZoomBucketing() {
         // Given
         Path pdfPath = Paths.get("/test/document.pdf");
 
         // When
-        cache.put(pdfPath, 0, 1.04, dummyImage);
-        Image retrieved = cache.get(pdfPath, 0, 1.06); // Should round to same bucket (1.0)
+        cache.put(pdfPath, 0, 1.04, dummyImage); // Rounds to 1.0
+        Image retrieved = cache.get(pdfPath, 0, 1.06); // Rounds to 1.1, different bucket
 
-        // Then
-        assertNotNull(retrieved);
-        assertEquals(dummyImage, retrieved);
+        // Then - should be null because 1.04 -> 1.0 but 1.06 -> 1.1
+        assertNull(retrieved);
+        
+        // Now test same bucket retrieval
+        Image retrieved2 = cache.get(pdfPath, 0, 1.03); // Rounds to 1.0, same bucket
+        assertNotNull(retrieved2);
+        assertEquals(dummyImage, retrieved2);
     }
 
     @Test
@@ -330,13 +341,15 @@ class PdfThumbnailCacheTest {
         Image image1 = dummyImage;
         Image image2 = new Image("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
-        // When
-        cache.put(pdfPath, 0, 1.05, image1); // Buckets to 1.1
-        cache.put(pdfPath, 0, 0.95, image2); // Buckets to 1.0
+        // When - Understand rounding: Math.round(zoom * 10) / 10
+        cache.put(pdfPath, 0, 1.05, image1); // Rounds to 1.1
+        cache.put(pdfPath, 0, 0.95, image2); // Rounds to 1.0
 
         // Then
-        assertEquals(image1, cache.get(pdfPath, 0, 1.06)); // Same bucket as 1.05
-        assertEquals(image2, cache.get(pdfPath, 0, 0.94)); // Same bucket as 0.95
-        assertNotEquals(image1, cache.get(pdfPath, 0, 0.95));
+        assertEquals(image1, cache.get(pdfPath, 0, 1.06)); // 1.06 rounds to 1.1, same as 1.05
+        assertEquals(image1, cache.get(pdfPath, 0, 1.14)); // 1.14 rounds to 1.1, same bucket
+        assertEquals(image2, cache.get(pdfPath, 0, 0.96)); // 0.96 rounds to 1.0, same as 0.95
+        assertEquals(image2, cache.get(pdfPath, 0, 1.04)); // 1.04 rounds to 1.0, same bucket
+        assertNotEquals(image1, cache.get(pdfPath, 0, 0.95)); // Different buckets
     }
 }
