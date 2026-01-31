@@ -4,6 +4,65 @@
    Version 2.0 - Fully Redesigned
    =========================== */
 
+/* ========== ICON SYSTEM ========== */
+/* Tabler Icon View - SVG-based icons with theme support */
+.tabler-icon {
+    -fx-alignment: CENTER;
+}
+
+.icon-svg-path {
+    -fx-fill: transparent;
+    -fx-stroke: #57606a;
+    -fx-stroke-width: 2;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.dark-mode .icon-svg-path {
+    -fx-stroke: #c9d1d9;
+}
+
+/* Icon color variants */
+.primary-icon .icon-svg-path {
+    -fx-stroke: #5b65ea;
+}
+
+.dark-mode .primary-icon .icon-svg-path {
+    -fx-stroke: #7d8aff;
+}
+
+.success-icon .icon-svg-path {
+    -fx-stroke: #1a7f37;
+}
+
+.dark-mode .success-icon .icon-svg-path {
+    -fx-stroke: #3fb950;
+}
+
+.danger-icon .icon-svg-path {
+    -fx-stroke: #d1242f;
+}
+
+.dark-mode .danger-icon .icon-svg-path {
+    -fx-stroke: #f85149;
+}
+
+.warning-icon .icon-svg-path {
+    -fx-stroke: #e5830a;
+}
+
+.dark-mode .warning-icon .icon-svg-path {
+    -fx-stroke: #f0883e;
+}
+
+.info-icon .icon-svg-path {
+    -fx-stroke: #0969da;
+}
+
+.dark-mode .info-icon .icon-svg-path {
+    -fx-stroke: #539bf5;
+}
+
 /* ========== BUTTONS ========== */
 .button {
     -fx-font-family: "Inter", "SF Pro Display", -apple-system, "Segoe UI", system-ui, sans-serif;

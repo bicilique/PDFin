@@ -9,6 +9,7 @@ import com.pdftoolkit.state.CompressPdfState;
 import com.pdftoolkit.state.CompressionLevel;
 import com.pdftoolkit.state.StateStore;
 import com.pdftoolkit.ui.CustomDialog;
+import com.pdftoolkit.ui.Icons;
 import com.pdftoolkit.ui.PdfItemCell;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
@@ -54,6 +55,7 @@ public class CompressController {
 
     // Left Panel: File Staging Area (Following Protect Style)
     @FXML private StackPane emptyStatePane;  // Drop zone (large)
+    @FXML private StackPane dropZoneIconContainer;
     @FXML private ListView<PdfItem> fileListView;
     @FXML private VBox fileListContainer;
     @FXML private Button addFilesButton;
@@ -101,6 +103,7 @@ public class CompressController {
         bundle = LocaleManager.getBundle();
         
         // Initialize UI components
+        setupDropZoneIcon();
         setupCompressionRadioCards();
         setupFileListView();
         setupDragAndDrop();
@@ -117,6 +120,15 @@ public class CompressController {
         
         // Update UI text
         updateTexts();
+    }
+    
+    /**
+     * Setup drop zone icon.
+     */
+    private void setupDropZoneIcon() {
+        if (dropZoneIconContainer != null) {
+            dropZoneIconContainer.getChildren().add(Icons.create("folders", 60));
+        }
     }
 
     /**

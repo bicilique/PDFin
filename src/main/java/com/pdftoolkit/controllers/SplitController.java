@@ -5,6 +5,7 @@ import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfSplitService;
 import com.pdftoolkit.services.PdfThumbnailService;
 import com.pdftoolkit.ui.CustomDialog;
+import com.pdftoolkit.ui.Icons;
 import com.pdftoolkit.ui.PageThumbnailCard;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
@@ -55,6 +56,7 @@ public class SplitController {
 
     // LEFT PANEL: File staging elements (following protect style)
     @FXML private StackPane dropZonePane;  // Large drop zone when empty
+    @FXML private StackPane dropZoneIconContainer;  // Icon container for folders icon
     @FXML private VBox pagePreviewContainer;  // Container for page thumbnails when file loaded
     @FXML private TilePane pageGridContainer;
     @FXML private Label selectedFileInfoLabel;
@@ -161,6 +163,9 @@ public class SplitController {
 
     @FXML
     private void initialize() {
+        // Setup drop zone icon
+        setupDropZoneIcon();
+        
         // Restore state from AppState if available
         restoreToolState();
         
@@ -314,6 +319,16 @@ public class SplitController {
         
         // Initial UI update
         updateUI();
+    }
+    
+    /**
+     * Setup drop zone icon with folders icon.
+     */
+    private void setupDropZoneIcon() {
+        if (dropZoneIconContainer != null) {
+            dropZoneIconContainer.getChildren().clear();
+            dropZoneIconContainer.getChildren().add(Icons.create("folders", 60));
+        }
     }
     
     /**

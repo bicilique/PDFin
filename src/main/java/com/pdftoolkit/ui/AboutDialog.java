@@ -5,6 +5,8 @@ import com.pdftoolkit.utils.ThemeManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Modality;
@@ -123,9 +125,23 @@ public class AboutDialog {
         container.setPadding(new Insets(32, 40, 32, 40));
         container.setPrefWidth(420);
         
-        // App Icon/Logo
-        Label logo = new Label("📄");
-        logo.setStyle("-fx-font-size: 64px;");
+        // App Icon/Logo - PDFin Logo
+        ImageView logo = new ImageView();
+        try {
+            Image logoImage = new Image(
+                AboutDialog.class.getResourceAsStream("/icons/LOGO_PDFin_128.png")
+            );
+            logo.setImage(logoImage);
+            logo.setFitWidth(80);
+            logo.setFitHeight(80);
+            logo.setPreserveRatio(true);
+            logo.setSmooth(true);
+        } catch (Exception e) {
+            System.err.println("Failed to load logo in About dialog: " + e.getMessage());
+            // Fallback to emoji if image fails
+            Label fallbackLogo = new Label("📄");
+            fallbackLogo.setStyle("-fx-font-size: 64px;");
+        }
         
         // App Name
         Label appName = new Label(APP_NAME);
@@ -150,11 +166,6 @@ public class AboutDialog {
         // GitHub link with icon
         HBox githubBox = createGitHubLink();
         
-        // Separator
-        Separator separator2 = new Separator();
-        separator2.setPrefWidth(180);
-        separator2.setStyle("-fx-opacity: 0.3;");
-        
         // Copyright
         Label copyright = new Label(COPYRIGHT);
         copyright.getStyleClass().add("about-copyright");
@@ -177,7 +188,6 @@ public class AboutDialog {
             version,
             separator,
             githubBox,
-            separator2,
             copyright,
             techInfo
         );
@@ -187,23 +197,58 @@ public class AboutDialog {
     
     
     /**
-     * Create GitHub link section with icon.
+     * Create GitHub link section with icon button.
      */
     private static HBox createGitHubLink() {
-        HBox container = new HBox(8);
+        HBox container = new HBox(10);
         container.setAlignment(Pos.CENTER);
         
-        // GitHub icon
-        Label githubIcon = new Label("⚡");
-        githubIcon.setStyle("-fx-font-size: 16px; -fx-opacity: 0.7;");
+        // GitHub button with icon
+        Button githubButton = new Button("Follow me on GitHub");
+        githubButton.setGraphic(Icons.create("github", 20));
+        githubButton.getStyleClass().add("github-button");
+        githubButton.setStyle(
+            "-fx-background-color: #24292e;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 13px;" +
+            "-fx-font-weight: 500;" +
+            "-fx-padding: 8px 16px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;" +
+            "-fx-border-width: 0;"
+        );
         
-        // Link
-        Hyperlink githubLink = new Hyperlink(GITHUB_URL);
-        githubLink.getStyleClass().add("about-link");
-        githubLink.setOnAction(e -> openURL(GITHUB_URL));
-        githubLink.setStyle("-fx-font-size: 13px;");
+        // Hover effect
+        githubButton.setOnMouseEntered(e -> {
+            githubButton.setStyle(
+                "-fx-background-color: #2f363d;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 13px;" +
+                "-fx-font-weight: 500;" +
+                "-fx-padding: 8px 16px;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-width: 0;"
+            );
+        });
         
-        container.getChildren().addAll(githubIcon, githubLink);
+        githubButton.setOnMouseExited(e -> {
+            githubButton.setStyle(
+                "-fx-background-color: #24292e;" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 13px;" +
+                "-fx-font-weight: 500;" +
+                "-fx-padding: 8px 16px;" +
+                "-fx-background-radius: 6px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-width: 0;"
+            );
+        });
+        
+        // Open GitHub profile on click
+        githubButton.setOnAction(e -> openURL(GITHUB_URL));
+        
+        container.getChildren().add(githubButton);
         return container;
     }
     

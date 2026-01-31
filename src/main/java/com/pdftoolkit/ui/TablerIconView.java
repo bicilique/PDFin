@@ -1,56 +1,45 @@
 package com.pdftoolkit.ui;
 
 import javafx.beans.property.*;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
+import javafx.scene.layout.StackPane;
+import javafx.scene.shape.SVGPath;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
-import java.io.IOException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
-import java.util.Properties;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Reliable icon component using Unicode text symbols.
- * NO SVG DEPENDENCY - uses Text node with Unicode characters.
- * Stable and performant for JavaFX.
+ * SVG-based icon component that loads and renders Tabler Icons.
+ * Uses actual SVG files with proper CSS theming support.
+ * Icons inherit color from CSS via -fx-fill property.
  */
-public class TablerIconView extends Text {
+public class TablerIconView extends StackPane {
     
-    private static final Properties ICON_MAP = new Properties();
-    private static boolean mapLoaded = false;
+    private static final Map<String, List<String>> SVG_CACHE = new HashMap<>();
+    private static final double DEFAULT_SIZE = 16.0;
     
     private final StringProperty iconName = new SimpleStringProperty();
-    private final DoubleProperty iconSize = new SimpleDoubleProperty(16);
-    
-    static {
-        loadIconMapping();
-    }
-    
-    private static void loadIconMapping() {
-        if (mapLoaded) return;
-        
-        try (InputStream is = TablerIconView.class.getResourceAsStream("/icons/tabler-icons.properties")) {
-            if (is != null) {
-                ICON_MAP.load(is);
-                mapLoaded = true;
-                System.out.println("✅ Loaded " + ICON_MAP.size() + " icon mappings");
-            } else {
-                System.err.println("⚠️ Icon mapping file not found, using fallback icons");
-            }
-        } catch (IOException e) {
-            System.err.println("⚠️ Error loading icon mapping: " + e.getMessage());
-        }
-    }
+    private final DoubleProperty iconSize = new SimpleDoubleProperty(DEFAULT_SIZE);
+    private final List<SVGPath> pathNodes = new ArrayList<>();
     
     public TablerIconView() {
-        this("", 16);
+        this("", DEFAULT_SIZE);
     }
     
     public TablerIconView(String iconName) {
-        this(iconName, 16);
+        this(iconName, DEFAULT_SIZE);
     }
     
     public TablerIconView(String iconName, double size) {
         getStyleClass().add("tabler-icon");
+        setPickOnBounds(false); // Allow clicks to pass through transparent areas
         
         // Bind properties
         this.iconName.addListener((obs, old, newVal) -> updateIcon(newVal));
@@ -62,51 +51,152 @@ public class TablerIconView extends Text {
     }
     
     private void updateIcon(String name) {
+        // Clear existing paths
+        getChildren().clear();
+        pathNodes.clear();
+        
         if (name == null || name.isEmpty()) {
-            setText("");
             return;
         }
         
-        String unicode = ICON_MAP.getProperty(name);
-        if (unicode != null) {
-            setText(unicode);
-        } else {
-            // Fallback: use first letter or generic symbol
-            System.err.println("⚠️ Icon not found: " + name + ", using fallback");
-            setText(getFallbackIcon(name));
+        // Load SVG paths
+        List<String> paths = loadSvgPaths(name);
+        if (paths == null || paths.isEmpty()) {
+            System.err.println("⚠️ Failed to load icon: " + name);
+            return;
         }
+        
+        // Create SVGPath nodes for each path
+        for (String pathData : paths) {
+            SVGPath svgPath = new SVGPath();
+            svgPath.setContent(pathData);
+            svgPath.getStyleClass().add("icon-svg-path");
+            pathNodes.add(svgPath);
+            getChildren().add(svgPath);
+        }
+        
+        // Update size
+        updateSize(iconSize.get());
     }
     
-    private String getFallbackIcon(String name) {
-        // Provide sensible fallbacks
-        switch (name.toLowerCase()) {
-            case "home": return "\u2302";
-            case "merge": return "\u2B0C";
-            case "split": return "\u2702";
-            case "compress": return "\u2B0A";
-            case "lock": case "protect": return "\u1F512";
-            case "folder": return "\u1F4C1";
-            case "folder-open": return "\u1F4C2";
-            case "file": case "file-pdf": return "\u1F4C4";
-            case "plus": case "add": return "\u002B";
-            case "trash": case "delete": case "remove": return "\u1F5D1";
-            case "check": case "success": return "\u2713";
-            case "x": case "close": case "error": return "\u00D7";
-            case "alert": case "warning": return "\u26A0";
-            case "info": return "\u2139";
-            case "eye": return "\u1F441";
-            case "eye-off": return "\u1F576";
-            case "play": case "start": return "\u25B6";
-            case "up": case "arrow-up": return "\u2191";
-            case "down": case "arrow-down": return "\u2193";
-            case "settings": return "\u2699";
-            default: return "\u25A0"; // Generic square
+    private List<String> loadSvgPaths(String iconName) {
+        // Check cache first
+        if (SVG_CACHE.containsKey(iconName)) {
+            return SVG_CACHE.get(iconName);
+        }
+        
+        // Load from SVG file
+        String resourcePath = "/icons/" + iconName + ".svg";
+        try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                System.err.println("⚠️ SVG file not found: " + resourcePath);
+                return null;
+            }
+            
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(is);
+            
+            List<String> paths = new ArrayList<>();
+            NodeList pathElements = doc.getElementsByTagName("path");
+            
+            for (int i = 0; i < pathElements.getLength(); i++) {
+                Element pathElement = (Element) pathElements.item(i);
+                String d = pathElement.getAttribute("d");
+                if (d != null && !d.isEmpty()) {
+                    paths.add(d);
+                }
+            }
+            
+            // Also check for other SVG elements
+            NodeList circleElements = doc.getElementsByTagName("circle");
+            for (int i = 0; i < circleElements.getLength(); i++) {
+                Element circle = (Element) circleElements.item(i);
+                String cx = circle.getAttribute("cx");
+                String cy = circle.getAttribute("cy");
+                String r = circle.getAttribute("r");
+                if (cx != null && !cx.isEmpty() && cy != null && !cy.isEmpty() && r != null && !r.isEmpty()) {
+                    try {
+                        double cxVal = Double.parseDouble(cx);
+                        double cyVal = Double.parseDouble(cy);
+                        double rVal = Double.parseDouble(r);
+                        // Convert circle to path using proper arc commands
+                        String circlePath = String.format("M %f,%f m -%f,0 a %f,%f 0 1,0 %f,0 a %f,%f 0 1,0 -%f,0",
+                                cxVal, cyVal, rVal, rVal, rVal, rVal * 2, rVal, rVal, rVal * 2);
+                        paths.add(circlePath);
+                    } catch (NumberFormatException e) {
+                        System.err.println("⚠️ Failed to parse circle attributes: " + e.getMessage());
+                    }
+                }
+            }
+            
+            NodeList rectElements = doc.getElementsByTagName("rect");
+            for (int i = 0; i < rectElements.getLength(); i++) {
+                Element rect = (Element) rectElements.item(i);
+                String x = rect.getAttribute("x");
+                String y = rect.getAttribute("y");
+                String width = rect.getAttribute("width");
+                String height = rect.getAttribute("height");
+                String rx = rect.getAttribute("rx");
+                
+                if (x != null && y != null && width != null && height != null) {
+                    double x1 = Double.parseDouble(x.isEmpty() ? "0" : x);
+                    double y1 = Double.parseDouble(y.isEmpty() ? "0" : y);
+                    double w = Double.parseDouble(width);
+                    double h = Double.parseDouble(height);
+                    double radius = rx != null && !rx.isEmpty() ? Double.parseDouble(rx) : 0;
+                    
+                    String rectPath;
+                    if (radius > 0) {
+                        // Rounded rectangle
+                        rectPath = String.format("M %f,%f L %f,%f Q %f,%f %f,%f L %f,%f Q %f,%f %f,%f L %f,%f Q %f,%f %f,%f L %f,%f Q %f,%f %f,%f Z",
+                                x1 + radius, y1,
+                                x1 + w - radius, y1, x1 + w, y1, x1 + w, y1 + radius,
+                                x1 + w, y1 + h - radius, x1 + w, y1 + h, x1 + w - radius, y1 + h,
+                                x1 + radius, y1 + h, x1, y1 + h, x1, y1 + h - radius,
+                                x1, y1 + radius, x1, y1, x1 + radius, y1);
+                    } else {
+                        // Simple rectangle
+                        rectPath = String.format("M %f,%f L %f,%f L %f,%f L %f,%f Z",
+                                x1, y1, x1 + w, y1, x1 + w, y1 + h, x1, y1 + h);
+                    }
+                    paths.add(rectPath);
+                }
+            }
+            
+            if (!paths.isEmpty()) {
+                SVG_CACHE.put(iconName, paths);
+                System.out.println("✅ Loaded SVG icon: " + iconName + " (" + paths.size() + " paths)");
+            }
+            
+            return paths;
+            
+        } catch (Exception e) {
+            System.err.println("⚠️ Error parsing SVG file " + resourcePath + ": " + e.getMessage());
+            e.printStackTrace();
+            return null;
         }
     }
     
     private void updateSize(double size) {
-        setFont(Font.font("Segoe UI Symbol", size)); // Use system font with good symbol support
-        setStyle("-fx-font-size: " + size + "px;");
+        // The original SVG viewBox is 24x24
+        // Scale factor to resize from 24x24 to desired size
+        double scale = size / 24.0;
+        
+        setMinSize(size, size);
+        setPrefSize(size, size);
+        setMaxSize(size, size);
+        
+        for (SVGPath path : pathNodes) {
+            path.setScaleX(scale);
+            path.setScaleY(scale);
+            path.setStrokeWidth(2.0 / scale); // Keep stroke width consistent
+        }
+        
+        // Apply inline style for size (CSS can override)
+        setStyle(String.format("-fx-min-width: %fpx; -fx-pref-width: %fpx; -fx-max-width: %fpx; " +
+                               "-fx-min-height: %fpx; -fx-pref-height: %fpx; -fx-max-height: %fpx;",
+                size, size, size, size, size, size));
     }
     
     // Property accessors
@@ -134,3 +224,4 @@ public class TablerIconView extends Text {
         return iconSize;
     }
 }
+

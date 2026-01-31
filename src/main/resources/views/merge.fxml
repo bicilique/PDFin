@@ -33,7 +33,7 @@
             <!-- Drop Zone (Shown when empty) -->
             <StackPane fx:id="dropZonePane" styleClass="drop-zone-large" VBox.vgrow="ALWAYS">
                 <VBox alignment="CENTER" spacing="20">
-                    <Label text="📄" styleClass="drop-zone-icon-large"/>
+                    <StackPane fx:id="dropZoneIconContainer" prefWidth="60" prefHeight="60"/>
                     <VBox alignment="CENTER" spacing="8">
                         <Label text="%merge.dropZone.title" styleClass="drop-zone-title"/>
                         <Label text="%merge.dropZone.subtitle" styleClass="drop-zone-subtitle"/>
@@ -88,7 +88,7 @@
                         
                         <VBox styleClass="summary-box" spacing="12">
                             <HBox spacing="12" alignment="CENTER_LEFT">
-                                <Label text="📄" style="-fx-font-size: 20px;"/>
+                                <StackPane fx:id="totalPagesIconContainer" prefWidth="20" prefHeight="20"/>
                                 <VBox spacing="2">
                                     <Label text="%merge.summary.pages" styleClass="summary-label"/>
                                     <Label fx:id="totalPagesLabel" text="0 pages" styleClass="summary-value"/>
@@ -98,7 +98,7 @@
                             <Separator/>
                             
                             <HBox spacing="12" alignment="CENTER_LEFT">
-                                <Label text="💾" style="-fx-font-size: 20px;"/>
+                                <StackPane fx:id="totalSizeIconContainer" prefWidth="20" prefHeight="20"/>
                                 <VBox spacing="2">
                                     <Label text="%merge.summary.size" styleClass="summary-label"/>
                                     <Label fx:id="totalSizeLabel" text="0 B" styleClass="summary-value"/>

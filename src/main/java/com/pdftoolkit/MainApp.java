@@ -41,8 +41,19 @@ public class MainApp extends Application {
             primaryStage.setMinWidth(MIN_WIDTH);
             primaryStage.setMinHeight(MIN_HEIGHT);
             
-            // Optional: Set application icon
-            // primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("/icons/app-icon.png")));
+            // Set application icon (multiple sizes for different contexts)
+            try {
+                Image icon32 = new Image(getClass().getResourceAsStream("/icons/LOGO_PDFin_32.png"));
+                Image icon64 = new Image(getClass().getResourceAsStream("/icons/LOGO_PDFin_64.png"));
+                Image icon128 = new Image(getClass().getResourceAsStream("/icons/LOGO_PDFin_128.png"));
+                Image icon256 = new Image(getClass().getResourceAsStream("/icons/LOGO_PDFin_256.png"));
+                
+                primaryStage.getIcons().addAll(icon32, icon64, icon128, icon256);
+                System.out.println("✅ App icons loaded successfully");
+            } catch (Exception e) {
+                System.err.println("❌ Failed to load app icons: " + e.getMessage());
+                e.printStackTrace();
+            }
             
             primaryStage.show();
             

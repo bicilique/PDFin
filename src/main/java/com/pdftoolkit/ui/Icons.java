@@ -2,7 +2,7 @@ package com.pdftoolkit.ui;
 
 /**
  * Factory class for creating TablerIconView instances.
- * NO SVG DEPENDENCY - uses Unicode text icons.
+ * Uses SVG-based icons with proper CSS theming support.
  */
 public class Icons {
     
@@ -10,7 +10,7 @@ public class Icons {
     public static final double SIZE_SMALL = 14;
     public static final double SIZE_MEDIUM = 18;
     public static final double SIZE_LARGE = 24;
-    public static final double SIZE_XLARGE = 48;
+    public static final double SIZE_XLARGE = 64;
     
     /**
      * Create an icon with default size (16px)
@@ -71,8 +71,16 @@ public class Icons {
         return create("compress");
     }
     
+    public static TablerIconView resize() {
+        return create("resize");
+    }
+    
     public static TablerIconView lock() {
         return create("lock");
+    }
+    
+    public static TablerIconView lockBolt() {
+        return create("lock-bolt");
     }
     
     public static TablerIconView folder() {
@@ -81,6 +89,18 @@ public class Icons {
     
     public static TablerIconView folderOpen() {
         return create("folder-open");
+    }
+    
+    public static TablerIconView folders() {
+        return create("folders");
+    }
+    
+    public static TablerIconView fileInfo() {
+        return create("file-info");
+    }
+    
+    public static TablerIconView deviceUsb() {
+        return create("device-usb");
     }
     
     public static TablerIconView plus() {
@@ -123,6 +143,10 @@ public class Icons {
         return create("info-circle");
     }
     
+    public static TablerIconView infoCircle() {
+        return create("info-circle");
+    }
+    
     public static TablerIconView eye() {
         return create("eye");
     }
@@ -134,4 +158,13 @@ public class Icons {
     public static TablerIconView loader() {
         return create("loader");
     }
+    
+    public static TablerIconView sun() {
+        return create("sun");
+    }
+    
+    public static TablerIconView moon() {
+        return create("moon");
+    }
 }
+

@@ -5,6 +5,7 @@ import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfMergeService;
 import com.pdftoolkit.services.PdfPreviewService;
 import com.pdftoolkit.ui.CustomDialog;
+import com.pdftoolkit.ui.Icons;
 import com.pdftoolkit.utils.AppPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
@@ -47,6 +48,7 @@ public class MergeController {
     // LEFT PANE: Files Area
     @FXML private Button clearFilesButton;
     @FXML private StackPane dropZonePane;
+    @FXML private StackPane dropZoneIconContainer;
     @FXML private Button selectFilesButton;
     @FXML private ScrollPane filesScrollPane;
     @FXML private VBox filesContainer;
@@ -55,6 +57,8 @@ public class MergeController {
     @FXML private Label filesCountLabel;
     
     // RIGHT PANE: Settings
+    @FXML private StackPane totalPagesIconContainer;
+    @FXML private StackPane totalSizeIconContainer;
     @FXML private Label totalPagesLabel;
     @FXML private Label totalSizeLabel;
     @FXML private TextField outputFolderField;
@@ -87,6 +91,8 @@ public class MergeController {
 
     @FXML
     public void initialize() {
+        setupDropZoneIcon();
+        setupSummaryIcons();
         setupOutputFolder();
         setupDragAndDrop();
         setupValidationBinding();
@@ -104,6 +110,27 @@ public class MergeController {
         
         // Initial text update
         updateTexts();
+    }
+    
+    /**
+     * Setup drop zone icon.
+     */
+    private void setupDropZoneIcon() {
+        if (dropZoneIconContainer != null) {
+            dropZoneIconContainer.getChildren().add(Icons.create("folders", 60));
+        }
+    }
+    
+    /**
+     * Setup summary icons.
+     */
+    private void setupSummaryIcons() {
+        if (totalPagesIconContainer != null) {
+            totalPagesIconContainer.getChildren().add(Icons.create("file-info", 20));
+        }
+        if (totalSizeIconContainer != null) {
+            totalSizeIconContainer.getChildren().add(Icons.create("device-usb", 20));
+        }
     }
     
     /**

@@ -40,11 +40,10 @@
 }
 
 .app-logo {
-    -fx-background-color: linear-gradient(to bottom right, #5b65ea, #7d8aff);
+    -fx-background-color: transparent;
     -fx-background-radius: 10px;
     -fx-pref-width: 44px;
     -fx-pref-height: 44px;
-    -fx-effect: dropshadow(gaussian, rgba(91, 101, 234, 0.25), 6, 0, 0, 2);
 }
 
 .logo-icon {

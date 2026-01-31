@@ -62,16 +62,16 @@ public class HomeController {
         
         // Add icons to tiles
         if (mergeIconContainer != null) {
-            mergeIconContainer.getChildren().add(Icons.create("merge", 48));
+            mergeIconContainer.getChildren().add(Icons.xlarge("merge"));
         }
         if (splitIconContainer != null) {
-            splitIconContainer.getChildren().add(Icons.create("split", 48));
+            splitIconContainer.getChildren().add(Icons.xlarge("split"));
         }
         if (compressIconContainer != null) {
-            compressIconContainer.getChildren().add(Icons.create("compress", 48));
+            compressIconContainer.getChildren().add(Icons.xlarge("resize"));
         }
         if (protectIconContainer != null) {
-            protectIconContainer.getChildren().add(Icons.create("lock", 48));
+            protectIconContainer.getChildren().add(Icons.xlarge("lock-bolt"));
         }
         
         // Tile click handlers with animations

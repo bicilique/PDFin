@@ -3,6 +3,7 @@ package com.pdftoolkit.controllers;
 import com.pdftoolkit.models.SelectedPdfItem;
 import com.pdftoolkit.services.PdfLockService;
 import com.pdftoolkit.services.PdfThumbnailService;
+import com.pdftoolkit.ui.Icons;
 import com.pdftoolkit.utils.DefaultPaths;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
@@ -42,6 +43,7 @@ public class ProtectController {
     // LEFT PANE: Files Area
     @FXML private Button clearFilesButton;
     @FXML private StackPane dropZonePane;
+    @FXML private StackPane dropZoneIconContainer;  // Icon container for folders icon
     @FXML private Button selectFilesButton;
     @FXML private ScrollPane filesScrollPane;
     @FXML private VBox filesContainer;
@@ -101,6 +103,9 @@ public class ProtectController {
             return;
         }
         
+        // Setup drop zone icon
+        setupDropZoneIcon();
+        
         setupPasswordFields();
         setupOutputFolder();
         setupDragAndDrop();
@@ -115,6 +120,16 @@ public class ProtectController {
         if (statusInfoBox != null) {
             statusInfoBox.setVisible(false);
             statusInfoBox.setManaged(false);
+        }
+    }
+    
+    /**
+     * Setup drop zone icon with folders icon.
+     */
+    private void setupDropZoneIcon() {
+        if (dropZoneIconContainer != null) {
+            dropZoneIconContainer.getChildren().clear();
+            dropZoneIconContainer.getChildren().add(Icons.create("folders", 60));
         }
     }
     

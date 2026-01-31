@@ -33,7 +33,7 @@
             <!-- Drop Zone (Shown when empty) -->
             <StackPane fx:id="emptyStatePane" styleClass="drop-zone-large" VBox.vgrow="ALWAYS">
                 <VBox alignment="CENTER" spacing="20">
-                    <Label text="📦" styleClass="drop-zone-icon-large"/>
+                    <StackPane fx:id="dropZoneIconContainer" prefWidth="60" prefHeight="60"/>
                     <VBox alignment="CENTER" spacing="8">
                         <Label text="%compress.dropZone.title" styleClass="drop-zone-title"/>
                         <Label text="%compress.dropZone.subtitle" styleClass="drop-zone-subtitle"/>
