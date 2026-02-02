@@ -1151,6 +1151,12 @@ public class SplitController {
                 File result = currentTask.getValue();
                 if (result != null) {
                     showSuccess(LocaleManager.getString("split.success") + "\n\nOutput folder: " + result.getName());
+                    // Record split operation in recent files (store output folder)
+                    try {
+                        com.pdftoolkit.navigation.AppState.getInstance().addRecentFile("Split", result);
+                    } catch (Exception ex) {
+                        System.err.println("Failed to add split result to recent files: " + ex.getMessage());
+                    }
                 }
             });
         });

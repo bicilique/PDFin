@@ -772,6 +772,12 @@ public class MergeController {
             if (result != null) {
                 lastOutputFile = result;
                 showSuccess(result.getName());
+                // Add to recent files
+                try {
+                    com.pdftoolkit.navigation.AppState.getInstance().addRecentFile("Merge", result);
+                } catch (Exception ex) {
+                    System.err.println("Failed to add merge result to recent files: " + ex.getMessage());
+                }
             }
         }));
         

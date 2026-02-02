@@ -764,6 +764,19 @@ public class ProtectController {
                 
                 Platform.runLater(() -> {
                     showSuccess(finalSuccess, finalFailure);
+                    // Add locked files to recent files list for quick access
+                    try {
+                        if (outputFolder != null) {
+                            for (SelectedPdfItem item : selectedFiles) {
+                                if (item.getStatus() == SelectedPdfItem.Status.DONE) {
+                                    File outFile = new File(outputFolder, item.getOutputName());
+                                    com.pdftoolkit.navigation.AppState.getInstance().addRecentFile("Lock", outFile);
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Failed to add locked files to recent files: " + ex.getMessage());
+                    }
                 });
                 
                 return null;
