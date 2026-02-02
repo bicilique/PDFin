@@ -80,7 +80,7 @@ public class MergeController {
     @FXML private Button closeSuccessButton;
     
     // Data and Services
-    private final ObservableList<PdfItem> selectedFiles = FXCollections.observableArrayList();
+    private final ObservableList<PdfItem> selectedFiles;
     private final PdfMergeService mergeService = new PdfMergeService();
     private final PdfPreviewService previewService = PdfPreviewService.getInstance();
     private final AppState.MergeToolState state = AppState.getInstance().getMergeToolState();
@@ -88,6 +88,11 @@ public class MergeController {
     private Task<File> mergeTask;
     private File lastOutputFile;
     private int draggedIndex = -1;
+
+    public MergeController() {
+        // Use state's list directly to persist across language changes
+        this.selectedFiles = AppState.getInstance().getMergeToolState().getPdfItems();
+    }
 
     @FXML
     public void initialize() {

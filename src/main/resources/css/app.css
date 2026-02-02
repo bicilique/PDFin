@@ -2581,6 +2581,9 @@
     -fx-border-color: #d0d7de;
     -fx-border-width: 1px;
     -fx-padding: 0;
+    -fx-min-width: 500px;
+    -fx-pref-width: 550px;
+    -fx-max-width: 650px;
     -fx-effect: dropshadow(gaussian, rgba(31, 35, 40, 0.2), 20, 0, 0, 4);
 }
 
@@ -2595,7 +2598,7 @@
 }
 
 .dialog-title {
-    -fx-font-size: 20px;
+    -fx-font-size: 22px;
     -fx-font-weight: 700;
     -fx-text-fill: #0d1117;
     -fx-letter-spacing: -0.3px;
@@ -2606,9 +2609,9 @@
 }
 
 .dialog-message {
-    -fx-font-size: 14px;
+    -fx-font-size: 15px;
     -fx-text-fill: #57606a;
-    -fx-line-spacing: 4px;
+    -fx-line-spacing: 5px;
 }
 
 .dark-mode .dialog-message {
@@ -2697,14 +2700,234 @@
 
 /* Dialog Button Container */
 .custom-dialog > .dialog-pane > .button-bar {
-    -fx-padding: 16px 24px;
+    -fx-padding: 24px 32px;
+    -fx-spacing: 12px;
     -fx-background-color: #f6f8fa;
     -fx-background-radius: 0 0 16px 16px;
     -fx-border-color: #d0d7de;
     -fx-border-width: 1px 0 0 0;
+    -fx-alignment: center;
 }
 
 .dark-mode .custom-dialog > .dialog-pane > .button-bar {
     -fx-background-color: #0d1117;
     -fx-border-color: #30363d;
+}
+
+/* Dialog Button Styles */
+.custom-dialog .button {
+    -fx-min-width: 120px;
+    -fx-min-height: 42px;
+    -fx-pref-height: 42px;
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+}
+
+.custom-dialog .btn-primary {
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+}
+
+.custom-dialog .btn-secondary {
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+}
+
+/* ===========================
+   Recent Files Table Styles
+   Modern & Professional Design
+   =========================== */
+
+/* Recent Table Container */
+.recent-table {
+    -fx-background-color: white;
+    -fx-background-radius: 12px;
+    -fx-border-color: #e1e4e8;
+    -fx-border-width: 1px;
+    -fx-border-radius: 12px;
+    -fx-padding: 0;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.04), 6, 0, 0, 2);
+}
+
+.dark-mode .recent-table {
+    -fx-background-color: #161b22;
+    -fx-border-color: #30363d;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 8, 0, 0, 2);
+}
+
+/* Table Column Headers */
+.recent-table .column-header-background {
+    -fx-background-color: #f6f8fa;
+    -fx-background-radius: 12px 12px 0 0;
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: #e1e4e8;
+}
+
+.dark-mode .recent-table .column-header-background {
+    -fx-background-color: #0d1117;
+    -fx-border-color: #30363d;
+}
+
+.recent-table .column-header {
+    -fx-background-color: transparent;
+    -fx-padding: 12px 16px;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #57606a;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.dark-mode .recent-table .column-header {
+    -fx-text-fill: #9198a1;
+}
+
+.recent-table .column-header .label {
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #57606a;
+}
+
+.dark-mode .recent-table .column-header .label {
+    -fx-text-fill: #9198a1;
+}
+
+/* Table Cells */
+.recent-table .table-cell {
+    -fx-padding: 14px 16px;
+    -fx-font-size: 14px;
+    -fx-text-fill: #24292f;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-width: 0;
+}
+
+.dark-mode .recent-table .table-cell {
+    -fx-text-fill: #e6edf3;
+}
+
+/* Table Rows */
+.recent-table .table-row-cell {
+    -fx-background-color: white;
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: #f0f2f5;
+    -fx-padding: 0;
+}
+
+.dark-mode .recent-table .table-row-cell {
+    -fx-background-color: #161b22;
+    -fx-border-color: #21262d;
+}
+
+/* Hover Effect */
+.recent-table .table-row-cell:hover {
+    -fx-background-color: #f6f8fa;
+    -fx-cursor: hand;
+}
+
+.dark-mode .recent-table .table-row-cell:hover {
+    -fx-background-color: #1c2128;
+}
+
+/* Last Row - Remove Border */
+.recent-table .table-row-cell:last-child {
+    -fx-border-width: 0;
+}
+
+/* Remove Default Selection */
+.recent-table .table-row-cell:focused {
+    -fx-background-color: white;
+}
+
+.dark-mode .recent-table .table-row-cell:focused {
+    -fx-background-color: #161b22;
+}
+
+/* File Name Cell - Primary Text */
+.recent-table .table-cell:first-child {
+    -fx-font-weight: 600;
+    -fx-text-fill: #0d1117;
+}
+
+.dark-mode .recent-table .table-cell:first-child {
+    -fx-text-fill: #e6edf3;
+}
+
+/* Action/Operation Cell - Secondary Text */
+.recent-table .table-cell:nth-child(2) {
+    -fx-text-fill: #57606a;
+    -fx-font-size: 13px;
+}
+
+.dark-mode .recent-table .table-cell:nth-child(2) {
+    -fx-text-fill: #9198a1;
+}
+
+/* Status Cell - With Icons */
+.recent-table .table-cell:nth-child(3) .label {
+    -fx-font-weight: 600;
+    -fx-font-size: 13px;
+}
+
+/* Timestamp Cell - Muted Text */
+.recent-table .table-cell:last-child {
+    -fx-text-fill: #656d76;
+    -fx-font-size: 13px;
+}
+
+.dark-mode .recent-table .table-cell:last-child {
+    -fx-text-fill: #8b949e;
+}
+
+/* Remove Scrollbar Styling for Clean Look */
+.recent-table .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-padding: 0 4px 0 0;
+}
+
+.recent-table .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+    -fx-background-radius: 4px;
+}
+
+.recent-table .scroll-bar:vertical .thumb {
+    -fx-background-color: #d0d7de;
+    -fx-background-radius: 4px;
+    -fx-min-width: 6px;
+    -fx-pref-width: 6px;
+}
+
+.dark-mode .recent-table .scroll-bar:vertical .thumb {
+    -fx-background-color: #484f58;
+}
+
+.recent-table .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #afb8c1;
+}
+
+.dark-mode .recent-table .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #6e7681;
+}
+
+/* Remove Increment/Decrement Buttons */
+.recent-table .scroll-bar:vertical .increment-button,
+.recent-table .scroll-bar:vertical .decrement-button {
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+}
+
+/* Filler for Better Rounded Corners */
+.recent-table .filler {
+    -fx-background-color: transparent;
+}
+
+/* Table View Placeholder (No Data) */
+.recent-table .placeholder .label {
+    -fx-text-fill: #9198a1;
+    -fx-font-size: 14px;
+}
+
+.dark-mode .recent-table .placeholder .label {
+    -fx-text-fill: #7d8590;
 }

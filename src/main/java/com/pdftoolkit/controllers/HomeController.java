@@ -6,12 +6,15 @@ import com.pdftoolkit.ui.Icons;
 import com.pdftoolkit.utils.LocaleManager;
 import javafx.animation.ScaleTransition;
 import javafx.fxml.FXML;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -44,7 +47,11 @@ public class HomeController {
     @FXML private Label protectTitleLabel;
     @FXML private Label protectDescLabel;
 
-    @FXML private ListView<String> recentFilesList;
+    @FXML private TableView<AppState.RecentFile> recentFilesTable;
+    @FXML private TableColumn<AppState.RecentFile, String> fileNameColumn;
+    @FXML private TableColumn<AppState.RecentFile, String> actionColumn;
+    @FXML private TableColumn<AppState.RecentFile, String> statusColumn;
+    @FXML private TableColumn<AppState.RecentFile, LocalDateTime> timestampColumn;
     @FXML private Label noRecentLabel;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, HH:mm");
@@ -126,6 +133,7 @@ public class HomeController {
         });
 
         // Recent files
+        setupRecentFilesTable();
         loadRecentFiles();
     }
     
@@ -172,24 +180,98 @@ public class HomeController {
         protectTitleLabel.setText(LocaleManager.getString("home.protect.title"));
         protectDescLabel.setText(LocaleManager.getString("home.protect.description"));
     }
+    
+    private void setupRecentFilesTable() {
+        if (recentFilesTable == null) return;
+        
+        // Setup columns
+        fileNameColumn.setCellValueFactory(new PropertyValueFactory<>("fileName"));
+        fileNameColumn.setText(LocaleManager.getString("home.recent.fileName"));
+        
+        actionColumn.setCellValueFactory(new PropertyValueFactory<>("operation"));
+        actionColumn.setText(LocaleManager.getString("home.recent.action"));
+        
+        statusColumn.setCellValueFactory(cellData -> {
+            boolean success = cellData.getValue().isSuccess();
+            return new javafx.beans.property.SimpleStringProperty(
+                success ? "✓ " + LocaleManager.getString("home.recent.success") 
+                        : "✗ " + LocaleManager.getString("home.recent.failed")
+            );
+        });
+        statusColumn.setText(LocaleManager.getString("home.recent.status"));
+        statusColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setStyle("");
+                } else {
+                    HBox container = new HBox(6);
+                    container.setAlignment(Pos.CENTER_LEFT);
+                    
+                    // Create icon label
+                    Label iconLabel = new Label();
+                    iconLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+                    
+                    // Create text label
+                    Label textLabel = new Label();
+                    textLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: 600;");
+                    
+                    if (item.startsWith("✓")) {
+                        iconLabel.setText("✓");
+                        textLabel.setText(LocaleManager.getString("home.recent.success"));
+                        iconLabel.setStyle("-fx-text-fill: #1a7f64; -fx-font-size: 14px; -fx-font-weight: 700;");
+                        textLabel.setStyle("-fx-text-fill: #1a7f64; -fx-font-size: 13px; -fx-font-weight: 600;");
+                    } else {
+                        iconLabel.setText("✗");
+                        textLabel.setText(LocaleManager.getString("home.recent.failed"));
+                        iconLabel.setStyle("-fx-text-fill: #d1242f; -fx-font-size: 14px; -fx-font-weight: 700;");
+                        textLabel.setStyle("-fx-text-fill: #d1242f; -fx-font-size: 13px; -fx-font-weight: 600;");
+                    }
+                    
+                    container.getChildren().addAll(iconLabel, textLabel);
+                    setGraphic(container);
+                    setText(null);
+                    setStyle("-fx-background-color: transparent;");
+                }
+            }
+        });
+        
+        timestampColumn.setCellValueFactory(new PropertyValueFactory<>("timestamp"));
+        timestampColumn.setText(LocaleManager.getString("home.recent.timestamp"));
+        timestampColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(LocalDateTime item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.format(TIME_FORMATTER));
+                }
+            }
+        });
+        
+        // Make table not editable
+        recentFilesTable.setEditable(false);
+        recentFilesTable.setSelectionModel(null);
+    }
 
     private void loadRecentFiles() {
         var recentFiles = AppState.getInstance().getRecentFiles();
         
         if (recentFiles.isEmpty()) {
             noRecentLabel.setVisible(true);
-            recentFilesList.setVisible(false);
+            if (recentFilesTable != null) {
+                recentFilesTable.setVisible(false);
+            }
         } else {
             noRecentLabel.setVisible(false);
-            recentFilesList.setVisible(true);
-            
-            recentFiles.forEach(file -> {
-                String displayText = String.format("%s - %s (%s)", 
-                    file.getOperation(),
-                    file.getFileName(),
-                    file.getTimestamp().format(TIME_FORMATTER));
-                recentFilesList.getItems().add(displayText);
-            });
+            if (recentFilesTable != null) {
+                recentFilesTable.setVisible(true);
+                recentFilesTable.setItems(recentFiles);
+            }
         }
     }
 }

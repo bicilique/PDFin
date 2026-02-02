@@ -22,11 +22,13 @@ public class AppState {
     // Tool-specific state holders
     private SplitToolState splitToolState;
     private MergeToolState mergeToolState;
+    private ProtectToolState protectToolState;
 
     private AppState() {
         recentFiles = FXCollections.observableArrayList();
         splitToolState = new SplitToolState();
         mergeToolState = new MergeToolState();
+        protectToolState = new ProtectToolState();
     }
 
     public static AppState getInstance() {
@@ -49,13 +51,27 @@ public class AppState {
     public MergeToolState getMergeToolState() {
         return mergeToolState;
     }
+    
+    /**
+     * Get the protect tool state holder.
+     */
+    public ProtectToolState getProtectToolState() {
+        return protectToolState;
+    }
 
     /**
      * Add a file to recent files list.
      */
     public void addRecentFile(String operation, File outputFile) {
+        addRecentFile(operation, outputFile, true);
+    }
+    
+    /**
+     * Add a file to recent files list with success status.
+     */
+    public void addRecentFile(String operation, File outputFile, boolean success) {
         recentFiles.add(0, new RecentFile(operation, outputFile.getName(), 
-                                         outputFile.getParent(), LocalDateTime.now()));
+                                         outputFile.getParent(), LocalDateTime.now(), success));
         
         // Keep only last 10
         if (recentFiles.size() > 10) {
@@ -78,12 +94,18 @@ public class AppState {
         private final String fileName;
         private final String folderPath;
         private final LocalDateTime timestamp;
+        private final boolean success;
 
         public RecentFile(String operation, String fileName, String folderPath, LocalDateTime timestamp) {
+            this(operation, fileName, folderPath, timestamp, true);
+        }
+        
+        public RecentFile(String operation, String fileName, String folderPath, LocalDateTime timestamp, boolean success) {
             this.operation = operation;
             this.fileName = fileName;
             this.folderPath = folderPath;
             this.timestamp = timestamp;
+            this.success = success;
         }
 
         public String getOperation() {
@@ -100,6 +122,10 @@ public class AppState {
 
         public LocalDateTime getTimestamp() {
             return timestamp;
+        }
+        
+        public boolean isSuccess() {
+            return success;
         }
     }
     
@@ -228,6 +254,52 @@ public class AppState {
             pdfItems.clear();
             outputFolder = null;
             outputFilename = "merged.pdf";
+        }
+    }
+    
+    /**
+     * Protect tool state - persists across navigation and language/theme changes.
+     * Uses ObservableList to support reactive UI updates.
+     */
+    public static class ProtectToolState {
+        private final ObservableList<com.pdftoolkit.models.SelectedPdfItem> pdfItems;
+        private String outputFolder;
+        
+        public ProtectToolState() {
+            this.pdfItems = FXCollections.observableArrayList();
+        }
+        
+        public ObservableList<com.pdftoolkit.models.SelectedPdfItem> getPdfItems() {
+            return pdfItems;
+        }
+        
+        public void addPdfItem(com.pdftoolkit.models.SelectedPdfItem item) {
+            // Prevent duplicates based on source file
+            if (pdfItems.stream().noneMatch(existing -> 
+                existing.getSourceFile().equals(item.getSourceFile()))) {
+                pdfItems.add(item);
+            }
+        }
+        
+        public void removePdfItem(com.pdftoolkit.models.SelectedPdfItem item) {
+            pdfItems.remove(item);
+        }
+        
+        public void clearPdfItems() {
+            pdfItems.clear();
+        }
+        
+        public String getOutputFolder() {
+            return outputFolder;
+        }
+        
+        public void setOutputFolder(String folder) {
+            this.outputFolder = folder;
+        }
+        
+        public void clear() {
+            pdfItems.clear();
+            outputFolder = null;
         }
     }
 }

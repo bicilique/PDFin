@@ -4,6 +4,8 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.layout.*?>
@@ -85,7 +87,17 @@
         </VBox.margin>
         <Label fx:id="recentTitleLabel" text="%home.recent.title" styleClass="section-title"/>
         <Label fx:id="noRecentLabel" text="%home.recent.empty" styleClass="empty-state" visible="true"/>
-        <ListView fx:id="recentFilesList" styleClass="recent-list" visible="false" maxHeight="120"/>
+        <TableView fx:id="recentFilesTable" styleClass="recent-table" visible="false" maxHeight="200">
+            <columns>
+                <TableColumn fx:id="fileNameColumn" text="File Name" prefWidth="250" minWidth="150"/>
+                <TableColumn fx:id="actionColumn" text="Action" prefWidth="120" minWidth="100"/>
+                <TableColumn fx:id="statusColumn" text="Status" prefWidth="100" minWidth="80"/>
+                <TableColumn fx:id="timestampColumn" text="Time" prefWidth="150" minWidth="120"/>
+            </columns>
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+            </columnResizePolicy>
+        </TableView>
     </VBox>
 
 </VBox>

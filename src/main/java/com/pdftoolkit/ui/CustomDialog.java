@@ -82,6 +82,12 @@ public class CustomDialog {
         confirmBtn.getStyleClass().addAll("btn", "btn-primary");
         cancelBtn.getStyleClass().addAll("btn", "btn-secondary");
         
+        // Set consistent button sizes
+        confirmBtn.setMinWidth(120);
+        confirmBtn.setPrefWidth(120);
+        cancelBtn.setMinWidth(120);
+        cancelBtn.setPrefWidth(120);
+        
         Optional<ButtonType> result = dialog.showAndWait();
         return result.isPresent() && result.get() == confirmButton;
     }
@@ -108,6 +114,14 @@ public class CustomDialog {
         btn2.getStyleClass().addAll("btn", "btn-secondary");
         btn3.getStyleClass().addAll("btn", "btn-secondary");
         
+        // Set consistent button sizes
+        btn1.setMinWidth(110);
+        btn1.setPrefWidth(110);
+        btn2.setMinWidth(110);
+        btn2.setPrefWidth(110);
+        btn3.setMinWidth(110);
+        btn3.setPrefWidth(110);
+        
         return dialog.showAndWait();
     }
     
@@ -124,6 +138,8 @@ public class CustomDialog {
         Button okBtn = (Button) dialog.getDialogPane().lookupButton(okButton);
         okBtn.getStyleClass().addAll("btn", "btn-primary");
         okBtn.setDefaultButton(true);
+        okBtn.setMinWidth(140);
+        okBtn.setPrefWidth(140);
         
         dialog.showAndWait();
     }
@@ -154,18 +170,21 @@ public class CustomDialog {
         );
         
         // Create content
-        VBox content = new VBox(16);
+        VBox content = new VBox(20);
         content.getStyleClass().add("dialog-content");
-        content.setPadding(new Insets(24));
+        content.setPadding(new Insets(32));
         content.setAlignment(Pos.TOP_LEFT);
+        content.setMinWidth(500);
+        content.setPrefWidth(550);
+        content.setMaxWidth(650);
         
         // Icon and title row
-        HBox header = new HBox(12);
+        HBox header = new HBox(16);
         header.setAlignment(Pos.CENTER_LEFT);
         
         Label iconLabel = new Label(getIcon(type));
         iconLabel.getStyleClass().addAll("dialog-icon", "dialog-icon-" + type.name().toLowerCase());
-        iconLabel.setStyle("-fx-font-size: 32px;");
+        iconLabel.setStyle("-fx-font-size: 36px;");
         
         Label titleLabel = new Label(title);
         titleLabel.getStyleClass().add("dialog-title");
@@ -179,7 +198,8 @@ public class CustomDialog {
         Label messageLabel = new Label(message);
         messageLabel.getStyleClass().add("dialog-message");
         messageLabel.setWrapText(true);
-        messageLabel.setMaxWidth(480);
+        messageLabel.setMaxWidth(Double.MAX_VALUE);
+        messageLabel.setMinHeight(60);
         
         content.getChildren().addAll(header, messageLabel);
         

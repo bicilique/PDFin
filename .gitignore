@@ -653,3 +653,4 @@ FodyWeavers.xsd
 # End of https://www.toptal.com/developers/gitignore/api/java,maven,macos,windows,intellij,visualbasic,visualstudio
 CUSTOM_DIALOG_IMPLEMENTATION.md
 .idea/
+PRODUCTION_CHECKLIST.md

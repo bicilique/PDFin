@@ -1,6 +1,7 @@
 package com.pdftoolkit.controllers;
 
 import com.pdftoolkit.models.SelectedPdfItem;
+import com.pdftoolkit.navigation.AppState;
 import com.pdftoolkit.services.PdfLockService;
 import com.pdftoolkit.services.PdfThumbnailService;
 import com.pdftoolkit.ui.Icons;
@@ -9,7 +10,6 @@ import com.pdftoolkit.utils.LocaleManager;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
-import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
@@ -83,15 +83,21 @@ public class ProtectController {
     @FXML private Button closeSuccessButton;
     
     // Data
-    private final ObservableList<SelectedPdfItem> selectedFiles = FXCollections.observableArrayList();
+    private final ObservableList<SelectedPdfItem> selectedFiles;
     private final PdfLockService lockService = new PdfLockService();
     private final PdfThumbnailService thumbnailService = new PdfThumbnailService();
+    private final AppState.ProtectToolState state = AppState.getInstance().getProtectToolState();
     private File outputFolder;
     private Task<Void> lockTask;
     
     // Preferences
     private static final String PREFS_LAST_OUTPUT_FOLDER = "lock.lastOutputFolder";
     private final Preferences prefs = Preferences.userNodeForPackage(ProtectController.class);
+    
+    public ProtectController() {
+        // Use state's list directly to persist across language changes
+        this.selectedFiles = AppState.getInstance().getProtectToolState().getPdfItems();
+    }
     
     /**
      * Initializes the controller after FXML loading.
@@ -387,12 +393,16 @@ public class ProtectController {
      * Adds files to the selection list.
      */
     private void addFiles(List<File> files) {
+        int duplicatesCount = 0;
+        
         for (File file : files) {
             // Skip if already added
             boolean exists = selectedFiles.stream()
                     .anyMatch(item -> item.getSourceFile().equals(file));
             
-            if (!exists && lockService.isValidPdf(file)) {
+            if (exists) {
+                duplicatesCount++;
+            } else if (lockService.isValidPdf(file)) {
                 SelectedPdfItem item = new SelectedPdfItem(file);
                 selectedFiles.add(item);
                 
@@ -402,6 +412,14 @@ public class ProtectController {
                 // Load thumbnail async
                 loadThumbnailAsync(item);
             }
+        }
+        
+        // Show feedback for duplicates
+        if (duplicatesCount > 0) {
+            showInfo(String.format(
+                LocaleManager.getString("lock.duplicatesIgnored"),
+                duplicatesCount
+            ));
         }
         
         updateFilesView();
@@ -863,5 +881,15 @@ public class ProtectController {
     @FXML
     private void handleCloseSuccess() {
         hideProgressOverlay();
+    }
+    
+    /**
+     * Show info alert.
+     */
+    private void showInfo(String message) {
+        com.pdftoolkit.ui.CustomDialog.showInfo(
+            LocaleManager.getString("lock.title"),
+            message
+        );
     }
 }
