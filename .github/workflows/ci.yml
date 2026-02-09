@@ -37,11 +37,23 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-maven-
           
+    - name: Install dependencies for JavaFX on Linux
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb libgl1-mesa-glx libx11-6
+          
     - name: Build with Maven
       run: mvn clean compile -B -V
       
     - name: Run tests
+      if: runner.os != 'Linux'
       run: mvn test -B
+      continue-on-error: true
+      
+    - name: Run tests with xvfb on Linux
+      if: runner.os == 'Linux'
+      run: xvfb-run -a mvn test -B
       continue-on-error: true
       
     - name: Package application
