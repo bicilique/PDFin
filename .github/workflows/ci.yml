@@ -50,11 +50,12 @@ jobs:
     - name: Verify JAR exists
       shell: bash
       run: |
-        if [ -f target/*.jar ]; then
+        if compgen -G "target/*.jar" > /dev/null; then
           echo "✅ JAR file created successfully"
           ls -lh target/*.jar
         else
           echo "❌ JAR file not found"
+          ls -la target/ || true
           exit 1
         fi
         
