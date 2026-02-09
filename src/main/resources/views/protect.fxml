@@ -139,7 +139,7 @@
                                            promptText="%lock.output.folderPlaceholder" 
                                            styleClass="field-input-large" HBox.hgrow="ALWAYS"/>
                                 <Button fx:id="browseFolderButton" text="%lock.output.browse" 
-                                        styleClass="secondary-button"/>
+                                        styleClass="secondary-button" onAction="#browseOutputFolder"/>
                             </HBox>
                         </VBox>
                         
