@@ -1,0 +1,189 @@
+/* ===========================
+   PDFin Design System Tokens
+   Professional Light + Dark Theme
+   Version 2.0 - Modernized
+   =========================== */
+
+/* ========== LIGHT MODE (DEFAULT) ========== */
+.root {
+    /* Typography */
+    -fx-font-family: "Inter", "SF Pro Display", -apple-system, "Segoe UI", system-ui, sans-serif;
+    -fx-font-size: 14px;
+    -fx-font-smoothing-type: gray;
+    
+    /* Base Colors */
+    -fx-base: #ffffff;
+    -fx-background: #fafbfc;
+    -fx-text-fill: #0d1117;
+    
+    /* Focus States */
+    -fx-focus-color: #5b65ea;
+    -fx-faint-focus-color: #5b65ea22;
+    
+    /* Surface Colors */
+    -surface-bg: #ffffff;
+    -surface-2: #f6f8fa;
+    -surface-elevated: #ffffff;
+    
+    /* Border Colors */
+    -border-default: #d0d7de;
+    -border-muted: #e5e9ed;
+    -border-strong: #a5adb7;
+    
+    /* Text Colors */
+    -text-primary: #0d1117;
+    -text-secondary: #57606a;
+    -text-muted: #8b949e;
+    -text-disabled: #bcc3cc;
+    
+    /* Primary Brand */
+    -primary-main: #5b65ea;
+    -primary-hover: #4850d6;
+    -primary-pressed: #3b43b8;
+    -primary-bg: #eff1ff;
+    -primary-border: #b8bfff;
+    
+    /* Accent/Success */
+    -accent-main: #1a7f64;
+    -accent-hover: #116149;
+    -accent-bg: #d1f4e8;
+    -accent-border: #8bdfc5;
+    
+    /* Danger */
+    -danger-main: #d1242f;
+    -danger-hover: #b31e28;
+    -danger-bg: #ffebec;
+    -danger-border: #ffb8bd;
+    
+    /* Warning */
+    -warning-main: #e5830a;
+    -warning-hover: #c86d00;
+    -warning-bg: #fff5e8;
+    -warning-border: #ffd693;
+    
+    /* Info */
+    -info-main: #0969da;
+    -info-hover: #0550ae;
+    -info-bg: #ddf4ff;
+    -info-border: #80ccff;
+    
+    /* Shadows */
+    -shadow-sm: 0 1px 2px 0 rgba(31, 35, 40, 0.08);
+    -shadow-md: 0 3px 8px 0 rgba(31, 35, 40, 0.12), 0 1px 3px 0 rgba(31, 35, 40, 0.08);
+    -shadow-lg: 0 8px 24px 0 rgba(31, 35, 40, 0.16), 0 2px 6px 0 rgba(31, 35, 40, 0.1);
+    -shadow-xl: 0 16px 48px 0 rgba(31, 35, 40, 0.24), 0 4px 12px 0 rgba(31, 35, 40, 0.12);
+    
+    /* Radii */
+    -radius-sm: 6px;
+    -radius-md: 8px;
+    -radius-lg: 12px;
+    -radius-xl: 16px;
+    -radius-full: 9999px;
+    
+    /* Spacing Scale */
+    -spacing-xs: 4px;
+    -spacing-sm: 8px;
+    -spacing-md: 12px;
+    -spacing-lg: 16px;
+    -spacing-xl: 24px;
+    -spacing-2xl: 32px;
+    -spacing-3xl: 48px;
+}
+
+/* ========== DARK MODE ========== */
+.root.dark-mode {
+    /* Base Colors */
+    -fx-base: #161b22;
+    -fx-background: #0d1117;
+    -fx-text-fill: #e6edf3;
+    
+    /* Focus States */
+    -fx-focus-color: #7d8aff;
+    -fx-faint-focus-color: #7d8aff33;
+    
+    /* Surface Colors */
+    -surface-bg: #161b22;
+    -surface-2: #1c2128;
+    -surface-elevated: #262c36;
+    
+    /* Border Colors */
+    -border-default: #30363d;
+    -border-muted: #21262d;
+    -border-strong: #484f58;
+    
+    /* Text Colors */
+    -text-primary: #e6edf3;
+    -text-secondary: #9198a1;
+    -text-muted: #6e7681;
+    -text-disabled: #484f58;
+    
+    /* Primary Brand */
+    -primary-main: #7d8aff;
+    -primary-hover: #96a2ff;
+    -primary-pressed: #b8c1ff;
+    -primary-bg: #1a1e3d;
+    -primary-border: #3d4466;
+    
+    /* Accent/Success */
+    -accent-main: #2ea176;
+    -accent-hover: #4cc491;
+    -accent-bg: #0d291e;
+    -accent-border: #1f6e4f;
+    
+    /* Danger */
+    -danger-main: #f47179;
+    -danger-hover: #ff8e95;
+    -danger-bg: #2d1417;
+    -danger-border: #6e2c30;
+    
+    /* Warning */
+    -warning-main: #f0a446;
+    -warning-hover: #ffb968;
+    -warning-bg: #2b1f0d;
+    -warning-border: #6b4e1a;
+    
+    /* Info */
+    -info-main: #539bf5;
+    -info-hover: #6eb4ff;
+    -info-bg: #0d1d2e;
+    -info-border: #1f3d5c;
+    
+    /* Shadows - darker for dark mode */
+    -shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    -shadow-md: 0 3px 8px 0 rgba(0, 0, 0, 0.4), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+    -shadow-lg: 0 8px 24px 0 rgba(0, 0, 0, 0.5), 0 2px 6px 0 rgba(0, 0, 0, 0.4);
+    -shadow-xl: 0 16px 48px 0 rgba(0, 0, 0, 0.7), 0 4px 12px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ========== DESIGN SYSTEM REFERENCE ========== */
+/*
+   PDFin Design System
+   
+   Color Strategy:
+   - Light: Clean neutrals with subtle blue undertones (GitHub-inspired)
+   - Dark: Deep blue-black with elevated surfaces
+   - Primary: Vibrant indigo/blue for CTAs and focus
+   - Accent: Teal/green for success states
+   
+   Typography Scale:
+   - Title: 32px / Bold / -0.5px tracking
+   - Subtitle: 20px / SemiBold
+   - Body: 14px / Regular
+   - Small: 12px / Regular
+   - Caption: 11px / Medium / +0.5px tracking
+   
+   Spacing Scale (8pt grid):
+   - 4, 8, 12, 16, 24, 32, 48, 64
+   
+   Border Radius:
+   - Components: 8px
+   - Cards: 12px
+   - Large panels: 16px
+   - Pills/badges: 9999px
+   
+   Elevation (Shadows):
+   - Level 1 (sm): Buttons, inputs
+   - Level 2 (md): Cards, dropdowns
+   - Level 3 (lg): Modals, popovers
+   - Level 4 (xl): Full-screen overlays
+*/

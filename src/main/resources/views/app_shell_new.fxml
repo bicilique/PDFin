@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.MenuButton?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.pdftoolkit.controllers.ShellControllerNew"
+            stylesheets="@../css/app.css"
+            prefWidth="1280" prefHeight="860">
+
+    <!-- Modern Header with Enhanced Design -->
+    <top>
+        <VBox styleClass="modern-header">
+            <HBox alignment="CENTER_LEFT" spacing="20" styleClass="header-main">
+                <padding>
+                    <Insets top="24" right="40" bottom="24" left="40"/>
+                </padding>
+                
+                <!-- Logo and Branding -->
+                <HBox spacing="16" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+                    <!-- PDFin Logo -->
+                    <StackPane styleClass="app-logo" prefWidth="40" prefHeight="40">
+                        <fx:define>
+                            <Image fx:id="appLogoImage" url="@../icons/LOGO_PDFin_64.png" preserveRatio="true" smooth="true"/>
+                        </fx:define>
+                        <ImageView image="$appLogoImage" fitWidth="40" fitHeight="40" preserveRatio="true" smooth="true"/>
+                    </StackPane>
+                    
+                    <VBox spacing="2">
+                        <Label text="%app.name" styleClass="header-title-new"/>
+                        <Label fx:id="headerSubtitle" text="%app.tagline" styleClass="header-subtitle-new"/>
+                    </VBox>
+                </HBox>
+                
+                <Region HBox.hgrow="ALWAYS"/>
+                
+                <!-- Actions Area -->
+                <HBox spacing="12" alignment="CENTER_RIGHT">
+
+                    <!-- Language Selector -->
+                    <MenuButton fx:id="languageButton" styleClass="header-action-button" 
+                                minWidth="44" minHeight="44">
+                        <graphic>
+                            <Label text="🌐" styleClass="action-icon"/>
+                        </graphic>
+                        <items>
+                            <MenuItem fx:id="englishMenuItem" text="%language.english"/>
+                            <MenuItem fx:id="indonesianMenuItem" text="%language.indonesian"/>
+                        </items>
+                    </MenuButton>
+                    
+                    <!-- Theme Toggle -->
+                    <Button fx:id="themeToggleButton" styleClass="header-action-button" 
+                            minWidth="44" minHeight="44">
+                        <graphic>
+                            <StackPane fx:id="themeIconContainer" styleClass="action-icon"/>
+                        </graphic>
+                    </Button>
+
+                    <!-- About Button -->
+                    <Button fx:id="aboutButton" styleClass="header-action-button" 
+                            minWidth="44" minHeight="44">
+                        <graphic>
+                            <Label text="ℹ" styleClass="action-icon"/>
+                        </graphic>
+                    </Button>
+                    
+                </HBox>
+            </HBox>
+            
+            <!-- Subtle separator -->
+            <Separator styleClass="header-separator"/>
+        </VBox>
+    </top>
+
+    <!-- Modern Sidebar Navigation -->
+    <left>
+        <VBox styleClass="modern-sidebar" spacing="8">
+            <padding>
+                <Insets top="24" right="16" bottom="24" left="16"/>
+            </padding>
+            
+            <!-- Home Section -->
+            <Button fx:id="homeButton" styleClass="modern-nav-button" maxWidth="Infinity">
+                <graphic>
+                    <HBox spacing="12" alignment="CENTER_LEFT">
+                        <Label text="⌂" styleClass="nav-icon"/>
+                        <Label fx:id="homeLabel" text="%nav.home" styleClass="nav-text"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            
+            <Separator styleClass="nav-separator-new">
+                <VBox.margin>
+                    <Insets top="16" bottom="12"/>
+                </VBox.margin>
+            </Separator>
+            
+            <!-- PDF Tools Section -->
+            <Label fx:id="toolsLabel" text="%nav.tools" styleClass="nav-section-label-new"/>
+            
+            <VBox spacing="4">
+                <Button fx:id="mergeButton" styleClass="modern-nav-button" maxWidth="Infinity">
+                    <graphic>
+                        <HBox spacing="12" alignment="CENTER_LEFT">
+                            <Label text="⎘" styleClass="nav-icon"/>
+                            <Label fx:id="mergeLabel" text="%nav.merge" styleClass="nav-text"/>
+                        </HBox>
+                    </graphic>
+                </Button>
+                
+                <Button fx:id="splitButton" styleClass="modern-nav-button" maxWidth="Infinity">
+                    <graphic>
+                        <HBox spacing="12" alignment="CENTER_LEFT">
+                            <Label text="✂" styleClass="nav-icon"/>
+                            <Label fx:id="splitLabel" text="%nav.split" styleClass="nav-text"/>
+                        </HBox>
+                    </graphic>
+                </Button>
+                
+                <Button fx:id="compressButton" styleClass="modern-nav-button" maxWidth="Infinity">
+                    <graphic>
+                        <HBox spacing="12" alignment="CENTER_LEFT">
+                            <Label text="⇅" styleClass="nav-icon"/>
+                            <Label fx:id="compressLabel" text="%nav.compress" styleClass="nav-text"/>
+                        </HBox>
+                    </graphic>
+                </Button>
+                
+                <Button fx:id="protectButton" styleClass="modern-nav-button" maxWidth="Infinity">
+                    <graphic>
+                        <HBox spacing="12" alignment="CENTER_LEFT">
+                            <Label text="🔒" styleClass="nav-icon"/>
+                            <Label fx:id="protectLabel" text="%nav.protect" styleClass="nav-text"/>
+                        </HBox>
+                    </graphic>
+                </Button>
+            </VBox>
+        </VBox>
+    </left>
+
+    <!-- Center content area with ScrollPane -->
+    <center>
+        <StackPane styleClass="content-area-new"/>
+    </center>
+</BorderPane>
