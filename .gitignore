@@ -203,7 +203,7 @@ buildNumber.properties
 *.dca
 *.scc
 *.tmp
-*.exe
+# *.exe
 *.bat
 *.bak
 *.old
