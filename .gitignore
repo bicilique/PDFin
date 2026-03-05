@@ -221,7 +221,7 @@ $RECYCLE.BIN/
 
 # Windows Installer files
 *.cab
-*.msi
+#*.msi
 *.msm
 *.msp
 
@@ -256,7 +256,7 @@ ehthumbs_vista.db
 # Recycle Bin used on file shares
 
 # Windows Installer files
-*.msix
+#*.msix
 
 # Windows shortcuts
 
